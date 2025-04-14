@@ -372,7 +372,7 @@ async fn test_invariant_shrink() {
     match get_counterexample!(runner, filter) {
         CounterExample::Single(_) => panic!("CounterExample should be a sequence."),
         // `fuzz_seed` at 119 makes this sequence shrinkable from 4 to 2.
-        CounterExample::Sequence(sequence) => {
+        CounterExample::Sequence(_original_length, sequence) => {
             assert!(sequence.len() <= 3);
 
             if sequence.len() == 2 {
@@ -418,7 +418,7 @@ async fn test_shrink(fuzz_config: TestFuzzConfig, contract_pattern: &str) {
 
     match get_counterexample!(runner, filter) {
         CounterExample::Single(_) => panic!("CounterExample should be a sequence."),
-        CounterExample::Sequence(sequence) => {
+        CounterExample::Sequence(_original_length, sequence) => {
             assert!(sequence.len() <= 3);
         }
     };
@@ -461,7 +461,7 @@ async fn test_shrink_big_sequence() {
 
     let initial_sequence = match initial_counterexample {
         CounterExample::Single(_) => panic!("CounterExample should be a sequence."),
-        CounterExample::Sequence(sequence) => sequence,
+        CounterExample::Sequence(_original_length, sequence) => sequence,
     };
     // ensure shrinks to same sequence of 77
     assert_eq!(initial_sequence.len(), 77);
@@ -494,7 +494,7 @@ async fn test_shrink_big_sequence() {
         .unwrap()
     {
         CounterExample::Single(_) => panic!("CounterExample should be a sequence."),
-        CounterExample::Sequence(sequence) => sequence,
+        CounterExample::Sequence(_original_length, sequence) => sequence,
     };
     // ensure shrinks to same sequence of 77
     assert_eq!(new_sequence.len(), 77);
@@ -531,7 +531,7 @@ async fn test_shrink_fail_on_revert() {
 
     match get_counterexample!(runner, filter) {
         CounterExample::Single(_) => panic!("CounterExample should be a sequence."),
-        CounterExample::Sequence(sequence) => {
+        CounterExample::Sequence(_original_length, sequence) => {
             // ensure shrinks to sequence of 10
             assert_eq!(sequence.len(), 10);
         }
@@ -633,7 +633,7 @@ async fn test_invariant_assume_respects_restrictions() {
             vec![(
                 "invariant_dummy()",
                 false,
-                Some("The `vm.assume` cheatcode rejected too many inputs (1 allowed)".into()),
+                Some("`vm.assume` rejected too many inputs (1 allowed)".into()),
                 None,
                 None,
             )],

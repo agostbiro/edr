@@ -290,7 +290,7 @@ test_repro!(6501, false, None, |res| {
     );
 
     let (kind, traces) = test.traces.last().expect("there are traces").clone();
-    let nodes = traces.into_nodes();
+    let nodes = traces.arena.into_nodes();
     assert_eq!(kind, TraceKind::Execution);
 
     let test_call = nodes.first().unwrap();
