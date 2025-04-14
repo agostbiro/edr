@@ -11,8 +11,6 @@ use proptest::test_runner::{
     FailurePersistence, FileFailurePersistence, RngAlgorithm, TestRng, TestRunner,
 };
 
-pub mod coverage;
-
 pub mod gas_report;
 
 pub mod multi_runner;
@@ -30,8 +28,8 @@ pub use foundry_evm::executors::stack_trace::StackTraceError;
 
 mod test_filter;
 
+use foundry_evm::fuzz::{invariant::InvariantConfig, FuzzConfig};
 pub use foundry_evm::*;
-use foundry_evm::{executors::fuzz::FuzzConfig, fuzz::invariant::InvariantConfig};
 pub use test_filter::TestFilter;
 
 static FAILURE_PATHS: OnceLock<RwLock<HashSet<&'static str>>> = OnceLock::new();
