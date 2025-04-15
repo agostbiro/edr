@@ -81,6 +81,7 @@ pub(crate) fn assert_invariants(
             .into(),
     )?;
     if !success {
+        dbg!(&invariant_failures.error);
         // We only care about invariants which we haven't broken yet.
         if invariant_failures.error.is_none() {
             let case_data = FailedInvariantCaseData::new(
@@ -92,6 +93,7 @@ pub(crate) fn assert_invariants(
                 &inner_sequence,
             );
             invariant_failures.error = Some(InvariantFuzzError::BrokenInvariant(case_data));
+            dbg!(&invariant_failures.error);
             return Ok(None);
         }
     }

@@ -124,6 +124,7 @@ pub struct InvariantMetrics {
 }
 
 /// Contains data collected during invariant test runs.
+#[derive(Debug)]
 pub struct InvariantTestData {
     // Consumed gas and calldata of every successful fuzz call.
     pub fuzz_cases: Vec<FuzzedCases>,
@@ -148,6 +149,7 @@ pub struct InvariantTestData {
 }
 
 /// Contains invariant test data.
+#[derive(Debug)]
 pub struct InvariantTest {
     // Fuzz state of invariant test.
     pub fuzz_state: EvmFuzzState,
@@ -356,7 +358,7 @@ impl<'a> InvariantExecutor<'a> {
         }
 
         let (invariant_test, invariant_strategy) =
-            self.prepare_test(&invariant_contract, fuzz_fixtures, deployed_libs)?;
+            dbg!(self.prepare_test(&invariant_contract, fuzz_fixtures, deployed_libs))?;
 
         // Start timer for this invariant test.
         let timer = FuzzTestTimer::new(self.config.timeout);
@@ -595,7 +597,7 @@ impl<'a> InvariantExecutor<'a> {
             &mut failures,
         )?;
         if let Some(error) = failures.error {
-            return Err(eyre!(error.revert_reason().unwrap_or_default()));
+            return dbg!(Err(eyre!(error.revert_reason().unwrap_or_default())));
         }
 
         Ok((

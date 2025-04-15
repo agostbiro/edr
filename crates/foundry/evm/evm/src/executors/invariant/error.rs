@@ -10,7 +10,7 @@ use super::{BasicTxDetails, InvariantContract};
 use crate::executors::RawCallResult;
 
 /// Stores information about failures and reverts of the invariant tests.
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct InvariantFailures {
     /// Total number of reverts.
     pub reverts: usize,

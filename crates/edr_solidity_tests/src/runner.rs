@@ -1286,7 +1286,7 @@ fn try_to_replay_recorded_failures<NestedTraceDecoderT: NestedTraceDecoder>(
             if !success {
                 // If sequence still fails then replay error to collect traces and
                 // exit without executing new runs.
-                let (reason, stack_trace_result) = replay_run(ReplayRunArgs {
+                let stack_trace_result = replay_run(ReplayRunArgs {
                     invariant_contract,
                     executor,
                     known_contracts,
@@ -1301,28 +1301,20 @@ fn try_to_replay_recorded_failures<NestedTraceDecoderT: NestedTraceDecoder>(
                     fail_on_revert: invariant_config.fail_on_revert,
                     show_solidity: invariant_config.show_solidity,
                 })
-                .map_or_else(
-                    |_err| (None, None),
-                    |result| {
-                        (
-                            result.revert_reason,
-                            result.stack_trace_result.map(StackTraceResult::from),
-                        )
-                    },
-                );
-                let reason = reason.or_else(|| {
-                    if replayed_entirely {
-                        Some(format!(
-                            "{} replay failure",
-                            invariant_contract.invariant_function.name
-                        ))
-                    } else {
-                        Some(format!(
-                            "{} persisted failure revert",
-                            invariant_contract.invariant_function.name
-                        ))
-                    }
+                .map_or(None, |result| {
+                    result.stack_trace_result.map(StackTraceResult::from)
                 });
+                let reason = if replayed_entirely {
+                    Some(format!(
+                        "{} replay failure",
+                        invariant_contract.invariant_function.name
+                    ))
+                } else {
+                    Some(format!(
+                        "{} persisted failure revert",
+                        invariant_contract.invariant_function.name
+                    ))
+                };
 
                 return Some(TestResult {
                     status: TestStatus::Failure,
