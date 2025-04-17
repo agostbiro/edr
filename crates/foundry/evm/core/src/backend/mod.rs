@@ -1307,8 +1307,7 @@ impl DatabaseExt for Backend {
                 // reset cached state from the previous block
                 let mut persistent_addrs = self.inner.persistent_accounts.clone();
                 // we also want to copy the caller state here
-                persistent_addrs.extend(dbg!(self.caller_address()));
-                dbg!(persistent_addrs.len(), &persistent_addrs);
+                persistent_addrs.extend(self.caller_address());
 
                 let active = self.inner.get_fork_mut(active_idx);
                 active.journaled_state = self.fork_init_journaled_state.clone();

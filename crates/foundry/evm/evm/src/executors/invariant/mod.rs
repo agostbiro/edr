@@ -596,7 +596,6 @@ impl<'a> InvariantExecutor<'a> {
             &[],
             &mut failures,
         )?;
-        // dbg!(&failures.error);
         if let Some(error) = failures.error {
             return Err(eyre!(error.revert_reason().unwrap_or_default()));
         }

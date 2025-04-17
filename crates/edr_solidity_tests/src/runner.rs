@@ -952,7 +952,6 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
                                     counterexample_sequence,
                                 ));
                             }
-                            dbg!(&reason, &revert_reason);
 
                             // If we can't get a revert reason for the second time, we couldn't
                             // replay the failure, so keep the original revert reason

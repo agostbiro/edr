@@ -119,11 +119,6 @@ pub fn replay_run<NestedTraceDecoderT: NestedTraceDecoder>(
             show_solidity,
             /* indeterminism_reason */ None,
         ));
-        dbg!(
-            call_result.exit_reason,
-            call_result.reverted,
-            fail_on_revert
-        );
 
         // If this call failed, but didn't revert, this is terminal for sure.
         // If this call reverted, only exit if `fail_on_revert` is true.
@@ -159,24 +154,6 @@ pub fn replay_run<NestedTraceDecoderT: NestedTraceDecoder>(
             .abi_encode_input(&[])?
             .into(),
     )?;
-    dbg!(
-        invariant_result.reverted,
-        invariant_result.exit_reason,
-        invariant_result.out,
-        invariant_success
-    );
-    let call_trace_decoder = CallTraceDecoderBuilder::default()
-        // .with_known_contracts(&known_contracts)
-        .build();
-    let mut arena = invariant_result.traces.as_ref().unwrap().clone();
-    tokio::task::block_in_place(move || {
-        tokio::runtime::Handle::current().block_on(async move {
-            decode_trace_arena(&mut arena, &call_trace_decoder)
-                .await
-                .expect("Failed to decode traces");
-            println!("{}", render_trace_arena(&arena))
-        });
-    });
 
     traces.push((
         TraceKind::Execution,
@@ -257,7 +234,6 @@ pub fn replay_error<NestedTraceDecoderT: NestedTraceDecoder>(
         // Don't use at the moment.
         TestError::Abort(_) => Ok(ReplayResult::default()),
         TestError::Fail(_, ref calls) => {
-            dbg!(&failed_case.test_error, &failed_case.inner_sequence);
             // Shrink sequence of failed calls.
             let calls = shrink_sequence(
                 failed_case,
@@ -265,7 +241,6 @@ pub fn replay_error<NestedTraceDecoderT: NestedTraceDecoder>(
                 &executor,
                 invariant_contract.call_after_invariant,
             )?;
-            dbg!(&calls);
 
             set_up_inner_replay(&mut executor, &failed_case.inner_sequence);
 

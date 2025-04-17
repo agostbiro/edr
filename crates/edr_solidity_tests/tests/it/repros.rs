@@ -354,3 +354,9 @@ test_repro!(7481);
 
 // https://github.com/foundry-rs/foundry/issues/8006
 test_repro!(8006);
+
+// https://github.com/foundry-rs/foundry/issues/8639
+test_repro!(8639; |config| {
+    config.fuzz.runs = 1000;
+    config.fuzz.seed = Some(U256::from(100))
+});
