@@ -358,7 +358,7 @@ impl<'a> InvariantExecutor<'a> {
         }
 
         let (invariant_test, invariant_strategy) =
-            dbg!(self.prepare_test(&invariant_contract, fuzz_fixtures, deployed_libs))?;
+            self.prepare_test(&invariant_contract, fuzz_fixtures, deployed_libs)?;
 
         // Start timer for this invariant test.
         let timer = FuzzTestTimer::new(self.config.timeout);
@@ -596,8 +596,9 @@ impl<'a> InvariantExecutor<'a> {
             &[],
             &mut failures,
         )?;
+        // dbg!(&failures.error);
         if let Some(error) = failures.error {
-            return dbg!(Err(eyre!(error.revert_reason().unwrap_or_default())));
+            return Err(eyre!(error.revert_reason().unwrap_or_default()));
         }
 
         Ok((

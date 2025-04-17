@@ -794,7 +794,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
 
         // First, run the test normally to see if it needs to be skipped.
         let start = Instant::now();
-        if let Err(EvmError::Skip(reason)) = executor.clone().execute_test(
+        if let Err(EvmError::Skip(reason)) = executor.call(
             self.sender,
             address,
             func,
@@ -952,6 +952,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
                                     counterexample_sequence,
                                 ));
                             }
+                            dbg!(&reason, &revert_reason);
 
                             // If we can't get a revert reason for the second time, we couldn't
                             // replay the failure, so keep the original revert reason

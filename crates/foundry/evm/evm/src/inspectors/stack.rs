@@ -543,7 +543,7 @@ impl InspectorStack {
         ecx.db.commit(res.state.clone());
 
         // Update both states with new DB data after commit.
-        if let Err(e) = update_state(&mut ecx.journaled_state.state, &mut ecx.db) {
+        if let Err(e) = update_state(&mut ecx.journaled_state.state, &mut ecx.db, None) {
             let res = InterpreterResult {
                 result: InstructionResult::Revert,
                 output: Bytes::from(e.to_string()),
@@ -551,7 +551,7 @@ impl InspectorStack {
             };
             return (res, None);
         }
-        if let Err(e) = update_state(&mut res.state, &mut ecx.db) {
+        if let Err(e) = update_state(&mut res.state, &mut ecx.db, None) {
             let res = InterpreterResult {
                 result: InstructionResult::Revert,
                 output: Bytes::from(e.to_string()),

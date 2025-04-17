@@ -158,6 +158,7 @@ pub fn assert_multiple(
         );
         for (test_name, should_pass, reason, expected_logs, expected_warning_count) in tests {
             let logs = &actuals[*contract_name].test_results[*test_name].decoded_logs;
+            dbg!(&logs);
 
             let warnings_count = &actuals[*contract_name].warnings.len();
 
