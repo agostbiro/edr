@@ -444,7 +444,7 @@ async fn test_shrink_big_sequence() {
             U256::from(119u32),
             TestInvariantConfig {
                 runs: 1,
-                depth: 500,
+                depth: 1000,
                 ..TestInvariantConfig::default()
             },
         )
