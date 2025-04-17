@@ -20,7 +20,7 @@ use foundry_evm::{
     abi::TestFunctionExt,
     constants::{CALLER, LIBRARY_DEPLOYER},
     contracts::{ContractsByAddress, ContractsByArtifact},
-    coverage::HitMaps,
+    coverage::{HitMap, HitMaps},
     decode::{decode_console_logs, RevertDecoder},
     executors::{
         fuzz::FuzzedExecutor,
@@ -782,15 +782,16 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
         trace!(target: "edr_solidity_tests::test::fuzz", "executing invariant test for {:?}", func.name);
         let TestSetup {
             address,
-            logs,
-            traces,
+            mut logs,
+            mut traces,
             labeled_addresses,
             reason,
-            coverage,
+            mut coverage,
             deployed_libs,
             fuzz_fixtures,
             has_setup_method,
         } = setup;
+        debug_assert!(reason.is_none());
 
         // First, run the test normally to see if it needs to be skipped.
         let start = Instant::now();
@@ -832,10 +833,6 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
             abi: &self.contract.abi,
         };
 
-        let mut logs = logs.clone();
-        let mut traces = traces.clone();
-        let mut coverage = coverage.clone();
-
         let failure_dir = invariant_config.clone().failure_dir(self.name);
         let failure_file = failure_dir
             .as_ref()
@@ -867,12 +864,19 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
             reverts,
             last_run_inputs,
             gas_report_traces,
-            // TODO merge coverages
-            coverage: _coverage,
-            metrics,
+            coverage: mut invariant_coverage,
+            metrics: _metrics,
         } = match evm.invariant_fuzz(invariant_contract.clone(), &fuzz_fixtures, &deployed_libs) {
             Ok(x) => x,
             Err(e) => {
+                let duration = start.elapsed();
+                let stack_trace_result: StackTraceResult =
+                    if let Some(indeterminism_reasons) = executor.indeterminism_reasons() {
+                        indeterminism_reasons.into()
+                    } else {
+                        self.re_run_test_for_stack_traces(func, setup.has_setup_method)
+                            .into()
+                    };
                 return TestResult {
                     status: TestStatus::Failure,
                     reason: Some(format!(
@@ -886,11 +890,14 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
                         calls: 0,
                         reverts: 0,
                     },
-                    duration: start.elapsed(),
+                    duration,
+                    stack_trace_result: Some(stack_trace_result),
                     ..Default::default()
                 };
             }
         };
+
+        HitMaps::merge_opt(&mut coverage, invariant_coverage);
 
         let mut counterexample = None;
         let mut stack_trace = None;
