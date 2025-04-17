@@ -10,7 +10,7 @@ use proptest::{
 
 use super::{BasicTxDetails, CallDetails};
 
-/// Given a TestRunner and a strategy, it generates calls. Used inside the
+/// Given a `TestRunner` and a strategy, it generates calls. Used inside the
 /// Fuzzer inspector to override external calls to test for potential reentrancy
 /// vulnerabilities..
 #[derive(Clone, Debug)]

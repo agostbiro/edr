@@ -1,15 +1,14 @@
 use std::{
     cell::RefCell,
-    collections::{btree_map::Entry, BTreeMap, HashMap as Map},
+    collections::{btree_map::Entry, HashMap as Map},
     sync::Arc,
 };
 
 use alloy_primitives::{Address, Bytes, FixedBytes, Selector, U256};
 use alloy_sol_types::{sol, SolCall};
 use eyre::{eyre, ContextCompat, Result};
-use foundry_evm_core::{
-    constants::{CALLER, CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS, MAGIC_ASSUME},
-    utils::get_function,
+use foundry_evm_core::constants::{
+    CALLER, CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS, MAGIC_ASSUME,
 };
 pub use foundry_evm_fuzz::invariant::InvariantConfig;
 use foundry_evm_fuzz::{
@@ -23,7 +22,7 @@ use foundry_evm_fuzz::{
 use foundry_evm_traces::{CallTraceArena, SparsedTraceArena};
 use parking_lot::RwLock;
 use proptest::{
-    strategy::{BoxedStrategy, Strategy, ValueTree},
+    strategy::{Strategy, ValueTree},
     test_runner::{TestCaseError, TestRunner},
 };
 use result::{assert_invariants, can_continue};
@@ -490,7 +489,9 @@ impl<'a> InvariantExecutor<'a> {
                 current_run.inputs.push(
                     invariant_strategy
                         .new_tree(&mut invariant_test.execution_data.borrow_mut().branch_runner)
-                        .map_err(|_| TestCaseError::Fail("Could not generate case".into()))?
+                        .map_err(|err| {
+                            TestCaseError::Fail(format!("Could not generate case: {err}").into())
+                        })?
                         .current(),
                 );
             }
@@ -503,7 +504,9 @@ impl<'a> InvariantExecutor<'a> {
                     &current_run,
                     &self.config,
                 )
-                .map_err(|_| TestCaseError::Fail("Failed to call afterInvariant".into()))?;
+                .map_err(|err| {
+                    TestCaseError::Fail(format!("Failed to call afterInvariant: {err}").into())
+                })?;
             }
 
             // End current invariant test run.
@@ -968,7 +971,7 @@ pub(crate) fn call_invariant_function(
     executor: &Executor,
     address: Address,
     calldata: Bytes,
-) -> Result<(RawCallResult, bool, CowBackend)> {
+) -> Result<(RawCallResult, bool, CowBackend<'_>)> {
     let (mut call_result, backend) = executor.call_raw(CALLER, address, calldata, U256::ZERO)?;
     let success = executor.is_raw_call_mut_success(address, &mut call_result, false);
     Ok((call_result, success, backend))

@@ -8,6 +8,7 @@
 #[macro_use]
 extern crate tracing;
 
+// Used by alloy-primitives with hashbrown feature
 use std::{
     collections::BTreeMap,
     fmt::Display,
@@ -23,6 +24,7 @@ use alloy_primitives::{
 };
 use eyre::Result;
 use foundry_compilers::artifacts::sourcemap::SourceMap;
+use hashbrown as _;
 use semver::Version;
 
 pub mod analysis;
@@ -164,8 +166,7 @@ impl CoverageReport {
             analysis.all_items_mut().retain(|item| {
                 self.source_paths
                     .get(&(version.clone(), item.loc.source_id))
-                    .map(|path| predicate(path))
-                    .unwrap_or(false)
+                    .is_some_and(|path| predicate(path))
             });
             !analysis.all_items().is_empty()
         });
@@ -233,7 +234,7 @@ impl HitMap {
     pub fn new(bytecode: Bytes) -> Self {
         Self {
             bytecode,
-            hits: HashMap::with_capacity_and_hasher(1024, Default::default()),
+            hits: HashMap::with_capacity(1024),
         }
     }
 
@@ -252,7 +253,7 @@ impl HitMap {
     /// Increase the hit counter by 1 for the given program counter.
     #[inline]
     pub fn hit(&mut self, pc: u32) {
-        self.hits(pc, 1)
+        self.hits(pc, 1);
     }
 
     /// Increase the hit counter by `hits` for the given program counter.
@@ -306,7 +307,8 @@ impl Display for ContractId {
     }
 }
 
-/// An item anchor describes what instruction marks a [CoverageItem] as covered.
+/// An item anchor describes what instruction marks a [`CoverageItem`] as
+/// covered.
 #[derive(Clone, Debug)]
 pub struct ItemAnchor {
     /// The program counter for the opcode of this anchor.

@@ -1,4 +1,4 @@
-use std::cmp::min;
+// Removed unused import
 
 use alloy_primitives::{Address, Bytes, U256};
 use foundry_evm_core::constants::MAGIC_ASSUME;
@@ -85,7 +85,7 @@ impl CallSequenceShrinker {
 
 /// Shrinks the failure case to its smallest sequence of calls.
 ///
-/// Maximal shrinkage is guaranteed if the shrink_run_limit is not set to a
+/// Maximal shrinkage is guaranteed if the `shrink_run_limit` is not set to a
 /// value lower than the length of failed call sequence.
 ///
 /// The shrunk call sequence always respect the order failure is reproduced as

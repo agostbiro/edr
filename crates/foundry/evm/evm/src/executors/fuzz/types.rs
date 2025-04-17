@@ -1,4 +1,4 @@
-use alloy_primitives::{map::HashMap, Bytes, Log};
+use alloy_primitives::{Bytes, Log};
 use foundry_evm_core::backend::IndeterminismReasons;
 use foundry_evm_coverage::HitMaps;
 use foundry_evm_fuzz::FuzzCase;
@@ -42,7 +42,7 @@ pub struct CounterExampleData {
 
 /// Outcome of a single fuzz
 #[derive(Debug)]
-#[expect(clippy::large_enum_variant)]
+#[allow(clippy::large_enum_variant)]
 pub enum FuzzOutcome {
     Case(CaseOutcome),
     CounterExample(CounterExampleOutcome),

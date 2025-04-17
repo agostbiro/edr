@@ -28,7 +28,7 @@ use foundry_evm_core::{
     utils::StateChangeset,
 };
 use foundry_evm_coverage::HitMaps;
-use foundry_evm_traces::{CallTraceArena, SparsedTraceArena};
+use foundry_evm_traces::SparsedTraceArena;
 use revm::{
     db::{DatabaseCommit, DatabaseRef},
     interpreter::{return_ok, InstructionResult},
@@ -42,7 +42,7 @@ use crate::inspectors::{Cheatcodes, InspectorData, InspectorStack};
 
 mod builder;
 pub use builder::ExecutorBuilder;
-use foundry_cheatcodes::BroadcastableTransactions;
+// Leaving this intentionally removed as it was flagged as unused
 use foundry_evm_core::{backend::IndeterminismReasons, decode::SkipReason};
 
 pub mod fuzz;

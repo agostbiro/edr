@@ -47,101 +47,100 @@ pub struct SparsedTraceArena {
     /// Full trace arena.
     #[serde(flatten)]
     pub arena: CallTraceArena,
-    /// Ranges of trace steps to ignore in format (start_node, start_step) ->
-    /// (end_node, end_step). See `foundry_cheatcodes::utils::IgnoredTraces`
-    /// for more information.
+    /// Ranges of trace steps to ignore in format (`start_node`, `start_step`)
+    /// -> (`end_node`, `end_step`). See
+    /// `foundry_cheatcodes::utils::IgnoredTraces` for more information.
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub ignored: HashMap<(usize, usize), (usize, usize)>,
 }
 
 impl SparsedTraceArena {
     /// Goes over entire trace arena and removes ignored trace items.
+    #[allow(dead_code)]
     fn resolve_arena(&self) -> Cow<'_, CallTraceArena> {
         if self.ignored.is_empty() {
             Cow::Borrowed(&self.arena)
         } else {
             let mut arena = self.arena.clone();
-
-            fn clear_node(
-                nodes: &mut [CallTraceNode],
-                node_idx: usize,
-                ignored: &HashMap<(usize, usize), (usize, usize)>,
-                cur_ignore_end: &mut Option<(usize, usize)>,
-            ) {
-                // Prepend an additional None item to the ordering to handle the beginning of
-                // the trace.
-                let items = std::iter::once(None)
-                    .chain(nodes[node_idx].ordering.clone().into_iter().map(Some))
-                    .enumerate();
-
-                let mut iternal_calls = Vec::new();
-                let mut items_to_remove = BTreeSet::new();
-                for (item_idx, item) in items {
-                    if let Some(end_node) = ignored.get(&(node_idx, item_idx)) {
-                        *cur_ignore_end = Some(*end_node);
-                    }
-
-                    let mut remove = cur_ignore_end.is_some() & item.is_some();
-
-                    match item {
-                        // we only remove calls if they did not start/pause tracing
-                        Some(TraceMemberOrder::Call(child_idx)) => {
-                            clear_node(
-                                nodes,
-                                nodes[node_idx].children[child_idx],
-                                ignored,
-                                cur_ignore_end,
-                            );
-                            remove &= cur_ignore_end.is_some();
-                        }
-                        // we only remove decoded internal calls if they did not start/pause tracing
-                        Some(TraceMemberOrder::Step(step_idx)) => {
-                            // If this is an internal call beginning, track it in `iternal_calls`
-                            if let Some(DecodedTraceStep::InternalCall(_, end_step_idx)) =
-                                &nodes[node_idx].trace.steps[step_idx].decoded
-                            {
-                                iternal_calls.push((item_idx, remove, *end_step_idx));
-                                // we decide if we should remove it later
-                                remove = false;
-                            }
-                            // Handle ends of internal calls
-                            iternal_calls.retain(|(start_item_idx, remove_start, end_step_idx)| {
-                                if *end_step_idx != step_idx {
-                                    return true;
-                                }
-                                // only remove start if end should be removed as well
-                                if *remove_start && remove {
-                                    items_to_remove.insert(*start_item_idx);
-                                } else {
-                                    remove = false;
-                                }
-
-                                false
-                            });
-                        }
-                        _ => {}
-                    }
-
-                    if remove {
-                        items_to_remove.insert(item_idx);
-                    }
-
-                    if let Some((end_node, end_step_idx)) = cur_ignore_end {
-                        if node_idx == *end_node && item_idx == *end_step_idx {
-                            *cur_ignore_end = None;
-                        }
-                    }
-                }
-
-                for (offset, item_idx) in items_to_remove.into_iter().enumerate() {
-                    nodes[node_idx].ordering.remove(item_idx - offset - 1);
-                }
-            }
-
             clear_node(arena.nodes_mut(), 0, &self.ignored, &mut None);
-
             Cow::Owned(arena)
         }
+    }
+}
+
+fn clear_node(
+    nodes: &mut [CallTraceNode],
+    node_idx: usize,
+    ignored: &HashMap<(usize, usize), (usize, usize)>,
+    cur_ignore_end: &mut Option<(usize, usize)>,
+) {
+    // Prepend an additional None item to the ordering to handle the beginning of
+    // the trace.
+    let items = std::iter::once(None)
+        .chain(nodes[node_idx].ordering.clone().into_iter().map(Some))
+        .enumerate();
+
+    let mut iternal_calls = Vec::new();
+    let mut items_to_remove = BTreeSet::new();
+    for (item_idx, item) in items {
+        if let Some(end_node) = ignored.get(&(node_idx, item_idx)) {
+            *cur_ignore_end = Some(*end_node);
+        }
+
+        let mut remove = cur_ignore_end.is_some() & item.is_some();
+
+        match item {
+            // we only remove calls if they did not start/pause tracing
+            Some(TraceMemberOrder::Call(child_idx)) => {
+                clear_node(
+                    nodes,
+                    nodes[node_idx].children[child_idx],
+                    ignored,
+                    cur_ignore_end,
+                );
+                remove &= cur_ignore_end.is_some();
+            }
+            // we only remove decoded internal calls if they did not start/pause tracing
+            Some(TraceMemberOrder::Step(step_idx)) => {
+                // If this is an internal call beginning, track it in `iternal_calls`
+                if let Some(DecodedTraceStep::InternalCall(_, end_step_idx)) =
+                    &nodes[node_idx].trace.steps[step_idx].decoded
+                {
+                    iternal_calls.push((item_idx, remove, *end_step_idx));
+                    // we decide if we should remove it later
+                    remove = false;
+                }
+                // Handle ends of internal calls
+                iternal_calls.retain(|(start_item_idx, remove_start, end_step_idx)| {
+                    if *end_step_idx != step_idx {
+                        return true;
+                    }
+                    // only remove start if end should be removed as well
+                    if *remove_start && remove {
+                        items_to_remove.insert(*start_item_idx);
+                    } else {
+                        remove = false;
+                    }
+
+                    false
+                });
+            }
+            _ => {}
+        }
+
+        if remove {
+            items_to_remove.insert(item_idx);
+        }
+
+        if let Some((end_node, end_step_idx)) = cur_ignore_end {
+            if node_idx == *end_node && item_idx == *end_step_idx {
+                *cur_ignore_end = None;
+            }
+        }
+    }
+
+    for (offset, item_idx) in items_to_remove.into_iter().enumerate() {
+        nodes[node_idx].ordering.remove(item_idx - offset - 1);
     }
 }
 

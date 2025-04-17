@@ -594,6 +594,7 @@ impl TestSetup {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn success(
         address: Address,
         logs: Vec<Log>,

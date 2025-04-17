@@ -474,7 +474,7 @@ async fn test_shrink_big_sequence() {
 
     // test failure persistence
     let results = runner.test_collect(filter).await;
-    let test_result = results
+    let _test_result = results
         .get("default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequenceTest")
         .unwrap()
         .test_results
@@ -795,7 +795,7 @@ async fn test_invariant_scrape_values() {
 async fn test_invariant_roll_fork_handler() {
     let path_pattern = ".*fuzz/invariant/common/InvariantRollFork.t.sol";
 
-    let runner = TEST_DATA_DEFAULT
+    let _runner = TEST_DATA_DEFAULT
         .runner_with_invariant_config_and_seed(
             U256::from(119u32),
             TestInvariantConfig {

@@ -2,7 +2,7 @@ use std::{cell::RefCell, collections::BTreeMap};
 
 use alloy_dyn_abi::JsonAbiExt;
 use alloy_json_abi::Function;
-use alloy_primitives::{map::HashMap, Address, Bytes, Log, U256};
+use alloy_primitives::{Address, Log, U256};
 use foundry_evm_core::{
     constants::{MAGIC_ASSUME, TEST_TIMEOUT},
     decode::{RevertDecoder, SkipReason},
@@ -16,7 +16,7 @@ use foundry_evm_fuzz::{
 use foundry_evm_traces::SparsedTraceArena;
 use proptest::test_runner::{TestCaseError, TestError, TestRunner};
 
-use crate::executors::{Executor, FuzzTestTimer, RawCallResult};
+use crate::executors::{Executor, FuzzTestTimer};
 
 mod types;
 pub use types::{CaseOutcome, CounterExampleOutcome, FuzzOutcome};
@@ -141,7 +141,6 @@ impl FuzzedExecutor {
                 FuzzOutcome::CounterExample(CounterExampleOutcome {
                     exit_reason: status,
                     counterexample: outcome,
-                    ..
                 }) => {
                     // We cannot use the calldata returned by the test runner in `TestError::Fail`,
                     // since that input represents the last run case, which may not correspond with
@@ -167,10 +166,10 @@ impl FuzzedExecutor {
         } = fuzz_result.counterexample;
 
         let mut traces = fuzz_result.traces;
-        let (last_run_traces) = if run_result.is_ok() {
-            (traces.pop())
+        let last_run_traces = if run_result.is_ok() {
+            traces.pop()
         } else {
-            (call.traces.clone())
+            call.traces.clone()
         };
 
         let mut result = FuzzTestResult {
@@ -282,7 +281,7 @@ impl FuzzedExecutor {
         }
     }
 
-    /// Stores fuzz state for use with [fuzz_calldata_from_state]
+    /// Stores fuzz state for use with [`fuzz_calldata_from_state`]
     pub fn build_fuzz_state(&self, deployed_libs: &[Address]) -> EvmFuzzState {
         if let Some(fork_db) = self.executor.backend.active_fork_db() {
             EvmFuzzState::new(fork_db, self.config.dictionary, deployed_libs)

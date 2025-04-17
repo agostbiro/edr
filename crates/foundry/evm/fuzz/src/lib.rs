@@ -8,6 +8,7 @@
 #[macro_use]
 extern crate tracing;
 
+// Used internally
 use std::{fmt, sync::Arc};
 
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
@@ -18,6 +19,7 @@ use alloy_primitives::{
 use edr_common::calc;
 use foundry_evm_coverage::HitMaps;
 use foundry_evm_traces::{CallTraceArena, SparsedTraceArena};
+use indexmap as _;
 use itertools::Itertools;
 pub use proptest::test_runner::{Config as PropFuzzConfig, Reason};
 use serde::{Deserialize, Serialize};
@@ -36,7 +38,7 @@ mod inspector;
 pub use inspector::Fuzzer;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[expect(clippy::large_enum_variant)]
+#[allow(clippy::large_enum_variant)]
 pub enum CounterExample {
     /// Call used as a counter example for fuzz tests.
     Single(BaseCounterExample),
@@ -190,21 +192,21 @@ impl fmt::Display for BaseCounterExample {
 
         // Regular counterexample display.
         if let Some(sender) = self.sender {
-            write!(f, "\t\tsender={sender} addr=")?
+            write!(f, "\t\tsender={sender} addr=")?;
         }
 
         if let Some(name) = &self.contract_name {
-            write!(f, "[{name}]")?
+            write!(f, "[{name}]")?;
         }
 
         if let Some(addr) = &self.addr {
-            write!(f, "{addr} ")?
+            write!(f, "{addr} ")?;
         }
 
         if let Some(sig) = &self.signature {
-            write!(f, "calldata={sig}")?
+            write!(f, "calldata={sig}")?;
         } else {
-            write!(f, "calldata={}", &self.calldata)?
+            write!(f, "calldata={}", &self.calldata)?;
         }
 
         if let Some(args) = &self.args {
@@ -220,7 +222,7 @@ impl fmt::Display for BaseCounterExample {
 pub struct FuzzTestResult {
     /// we keep this for the debugger
     pub first_case: FuzzCase,
-    /// Gas usage (gas_used, call_stipend) per cases
+    /// Gas usage (`gas_used`, `call_stipend`) per cases
     pub gas_by_case: Vec<(u64, u64)>,
     /// Whether the test case was successful. This means that the transaction
     /// executed properly, or that there was a revert and that the test was
@@ -324,7 +326,7 @@ impl FuzzedCases {
         self.cases
     }
 
-    /// Get the last [FuzzCase]
+    /// Get the last [`FuzzCase`]
     #[inline]
     pub fn last(&self) -> Option<&FuzzCase> {
         self.cases.last()

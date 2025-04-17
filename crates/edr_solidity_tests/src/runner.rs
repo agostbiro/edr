@@ -1,12 +1,5 @@
 //! The Forge test runner.
-use std::{
-    borrow::Cow,
-    cmp::min,
-    collections::BTreeMap,
-    path::Path,
-    sync::Arc,
-    time::Instant,
-};
+use std::{borrow::Cow, cmp::min, collections::BTreeMap, path::Path, sync::Arc, time::Instant};
 
 use alloy_dyn_abi::DynSolValue;
 use alloy_json_abi::Function;
@@ -789,7 +782,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
             mut coverage,
             deployed_libs,
             fuzz_fixtures,
-            has_setup_method,
+            has_setup_method: _,
         } = setup;
         debug_assert!(reason.is_none());
 
@@ -1050,7 +1043,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
             mut logs,
             mut traces,
             mut labeled_addresses,
-            reason,
+            reason: _,
             mut coverage,
             deployed_libs,
             fuzz_fixtures,

@@ -381,7 +381,7 @@ impl<'a> ContractVisitor<'a> {
 
                     if let Some(body) = case.body {
                         self.push_item_kind(CoverageItemKind::Statement, &body.src);
-                        self.visit_block(&body)?
+                        self.visit_block(&body)?;
                     }
                 }
                 Ok(())
@@ -391,15 +391,15 @@ impl<'a> ContractVisitor<'a> {
                     self.visit_expression(&condition)?;
                 }
                 if let Some(pre) = node.attribute::<Node>("pre") {
-                    self.visit_block(&pre)?
+                    self.visit_block(&pre)?;
                 }
                 if let Some(post) = node.attribute::<Node>("post") {
-                    self.visit_block(&post)?
+                    self.visit_block(&post)?;
                 }
 
                 if let Some(body) = &node.body {
                     self.push_item_kind(CoverageItemKind::Statement, &body.src);
-                    self.visit_block(body)?
+                    self.visit_block(body)?;
                 }
                 Ok(())
             }

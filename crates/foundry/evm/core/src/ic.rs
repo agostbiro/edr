@@ -72,9 +72,12 @@ impl IcPcMap {
 }
 
 fn make_map<const PC_FIRST: bool>(code: &[u8]) -> FxHashMap<u32, u32> {
-    assert!(code.len() <= u32::MAX as usize, "bytecode is too big");
+    assert!(u32::try_from(code.len()).is_ok(), "bytecode is too big");
 
-    let mut map = FxHashMap::with_capacity_and_hasher(code.len(), Default::default());
+    let mut map = FxHashMap::with_capacity_and_hasher(
+        code.len(),
+        alloy_primitives::map::rustc_hash::FxBuildHasher,
+    );
 
     let mut pc = 0usize;
     let mut cumulative_push_size = 0usize;
@@ -104,7 +107,7 @@ fn make_map<const PC_FIRST: bool>(code: &[u8]) -> FxHashMap<u32, u32> {
 /// Represents a single instruction consisting of the opcode and its immediate
 /// data.
 pub struct Instruction<'a> {
-    /// OpCode, if it could be decoded.
+    /// `OpCode`, if it could be decoded.
     pub op: Option<OpCode>,
     /// Immediate data following the opcode.
     pub immediate: &'a [u8],
@@ -114,7 +117,7 @@ pub struct Instruction<'a> {
 
 /// Decodes raw opcode bytes into [`Instruction`]s.
 pub fn decode_instructions(code: &[u8]) -> Result<Vec<Instruction<'_>>> {
-    assert!(code.len() <= u32::MAX as usize, "bytecode is too big");
+    assert!(u32::try_from(code.len()).is_ok(), "bytecode is too big");
 
     let mut pc = 0usize;
     let mut steps = Vec::new();
@@ -122,7 +125,7 @@ pub fn decode_instructions(code: &[u8]) -> Result<Vec<Instruction<'_>>> {
     while pc < code.len() {
         let op = OpCode::new(code[pc]);
         pc += 1;
-        let immediate_size = op.map(|op| immediate_size(op, &code[pc..])).unwrap_or(0) as usize;
+        let immediate_size = op.map_or(0, |op| immediate_size(op, &code[pc..])) as usize;
 
         if pc + immediate_size > code.len() {
             eyre::bail!("incomplete sequence of bytecode");

@@ -5,7 +5,6 @@ use alloy_primitives::Log;
 use edr_solidity::contract_decoder::NestedTraceDecoder;
 use eyre::Result;
 use foundry_evm_core::{
-    constants::CALLER,
     contracts::{ContractsByAddress, ContractsByArtifact},
     decode::RevertDecoder,
 };
@@ -14,10 +13,7 @@ use foundry_evm_fuzz::{
     invariant::{BasicTxDetails, InvariantContract},
     BaseCounterExample,
 };
-use foundry_evm_traces::{
-    decode_trace_arena, load_contracts, render_trace_arena, CallTraceDecoderBuilder, TraceKind,
-    Traces,
-};
+use foundry_evm_traces::{load_contracts, TraceKind, Traces};
 use parking_lot::RwLock;
 use proptest::test_runner::TestError;
 use revm::primitives::U256;

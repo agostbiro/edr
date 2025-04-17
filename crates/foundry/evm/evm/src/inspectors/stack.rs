@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use alloy_primitives::{map::AddressHashMap, Address, Bytes, Log, U256};
 use foundry_evm_core::{
@@ -6,7 +6,7 @@ use foundry_evm_core::{
     InspectorExt,
 };
 use foundry_evm_coverage::HitMaps;
-use foundry_evm_traces::{CallTraceArena, SparsedTraceArena};
+use foundry_evm_traces::SparsedTraceArena;
 use revm::{
     inspectors::CustomPrintTracer,
     interpreter::{
@@ -403,15 +403,15 @@ impl InspectorStack {
     /// Collects all the data gathered during inspection into a single struct.
     #[inline]
     pub fn collect(self) -> InspectorData {
-        let traces =
-            self.tracer
-                .map(|tracer| tracer.into_traces())
-                .map(|arena| SparsedTraceArena {
-                    arena,
-                    // vm.pauseTracing + vm.resumeTracing are not supported
-                    // https://github.com/foundry-rs/foundry/pull/8696
-                    ignored: alloy_primitives::map::HashMap::default(),
-                });
+        let traces = self
+            .tracer
+            .map(foundry_evm_traces::TracingInspector::into_traces)
+            .map(|arena| SparsedTraceArena {
+                arena,
+                // vm.pauseTracing + vm.resumeTracing are not supported
+                // https://github.com/foundry-rs/foundry/pull/8696
+                ignored: alloy_primitives::map::HashMap::default(),
+            });
 
         InspectorData {
             logs: self.log_collector.map(|logs| logs.logs).unwrap_or_default(),
@@ -428,7 +428,9 @@ impl InspectorStack {
                 })
                 .unwrap_or_default(),
             traces,
-            coverage: self.coverage.map(|coverage| coverage.finish()),
+            coverage: self
+                .coverage
+                .map(foundry_evm_coverage::CoverageCollector::finish),
             cheatcodes: self.cheatcodes,
             chisel_state: self.chisel_state.and_then(|state| state.state),
         }
