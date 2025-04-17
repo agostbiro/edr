@@ -1,7 +1,7 @@
 //! Test outcomes.
 
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::BTreeMap,
     fmt::{self, Write},
     time::Duration,
 };

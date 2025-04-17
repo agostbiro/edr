@@ -2,7 +2,7 @@
 use std::{
     borrow::Cow,
     cmp::min,
-    collections::{BTreeMap, HashMap},
+    collections::BTreeMap,
     path::Path,
     sync::Arc,
     time::Instant,
@@ -20,7 +20,7 @@ use foundry_evm::{
     abi::TestFunctionExt,
     constants::{CALLER, LIBRARY_DEPLOYER},
     contracts::{ContractsByAddress, ContractsByArtifact},
-    coverage::{HitMap, HitMaps},
+    coverage::HitMaps,
     decode::{decode_console_logs, RevertDecoder},
     executors::{
         fuzz::FuzzedExecutor,
@@ -864,7 +864,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
             reverts,
             last_run_inputs,
             gas_report_traces,
-            coverage: mut invariant_coverage,
+            coverage: invariant_coverage,
             metrics: _metrics,
         } = match evm.invariant_fuzz(invariant_contract.clone(), &fuzz_fixtures, &deployed_libs) {
             Ok(x) => x,

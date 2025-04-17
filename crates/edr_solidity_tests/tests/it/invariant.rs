@@ -212,7 +212,7 @@ async fn test_invariant_override() {
         ".*",
         ".*fuzz/invariant/common/InvariantReentrancy.t.sol",
     );
-    let mut runner = TEST_DATA_DEFAULT
+    let runner = TEST_DATA_DEFAULT
         .runner_with_invariant_config(TestInvariantConfig {
             fail_on_revert: false,
             call_override: true,
@@ -244,7 +244,7 @@ async fn test_invariant_fail_on_revert() {
         ".*",
         ".*fuzz/invariant/common/InvariantHandlerFailure.t.sol",
     );
-    let mut runner = TEST_DATA_DEFAULT
+    let runner = TEST_DATA_DEFAULT
         .runner_with_invariant_config(TestInvariantConfig {
             fail_on_revert: true,
             runs: 1,
@@ -947,7 +947,7 @@ async fn test_no_reverts_in_counterexample() {
         ".*",
         ".*fuzz/invariant/common/InvariantSequenceNoReverts.t.sol",
     );
-    let mut runner = TEST_DATA_DEFAULT
+    let runner = TEST_DATA_DEFAULT
         .runner_with_invariant_config(TestInvariantConfig {
             fail_on_revert: false,
             // Use original counterexample to test sequence len.
