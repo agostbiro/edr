@@ -5,7 +5,7 @@
 #![warn(unused_crate_dependencies)]
 
 use auto_impl::auto_impl;
-use revm::{inspectors::NoOpInspector, interpreter::CreateInputs, Database, EvmContext, Inspector};
+use revm::{inspector::NoOpInspector, interpreter::CreateInputs, Database, Inspector};
 use revm_inspectors::access_list::AccessListInspector;
 
 #[macro_use]

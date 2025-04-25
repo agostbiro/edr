@@ -6,17 +6,8 @@ use alloy_json_abi::{Function, JsonAbi};
 use alloy_network::{AnyTxEnvelope, BlockResponse, Network};
 use alloy_primitives::{Address, PrimitiveSignature, Selector, B256, U256};
 use alloy_rpc_types::{Transaction, TransactionRequest};
-pub use revm::primitives::EvmState as StateChangeset;
-use revm::{
-    db::WrapDatabaseRef,
-    handler::register::EvmHandler,
-    interpreter::{
-        return_ok, CallInputs, CallOutcome, CallScheme, CallValue, CreateInputs, CreateOutcome,
-        Gas, InstructionResult, InterpreterResult,
-    },
-    primitives::{CreateScheme, EVMError, SpecId, TxKind, KECCAK_EMPTY},
-    FrameOrResult, FrameResult,
-};
+use revm::primitives::hardfork::SpecId;
+pub use revm::state::EvmState as StateChangeset;
 
 pub use crate::ic::*;
 use crate::{constants::DEFAULT_CREATE2_DEPLOYER, InspectorExt};
