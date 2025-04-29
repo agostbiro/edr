@@ -15,7 +15,7 @@ use alloy_rpc_types::request::TransactionRequest;
 use alloy_sol_types::{SolInterface, SolValue};
 use foundry_evm_core::{
     abi::Vm::stopExpectSafeMemoryCall,
-    backend::{DatabaseExt, RevertDiagnostic},
+    backend::{CheatcodeBackend, RevertDiagnostic},
     constants::{CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS},
     InspectorExt,
 };
@@ -223,7 +223,7 @@ impl Cheatcodes {
         }
     }
 
-    fn apply_cheatcode<DB: DatabaseExt>(
+    fn apply_cheatcode<DB: CheatcodeBackend>(
         &mut self,
         ecx: &mut EvmContext<DB>,
         call: &CallInputs,
@@ -265,7 +265,7 @@ impl Cheatcodes {
     /// There may be cheatcodes in the constructor of the new contract, in order
     /// to allow them automatically we need to determine the new address
     #[allow(clippy::unused_self)]
-    fn allow_cheatcodes_on_create<DB: DatabaseExt>(
+    fn allow_cheatcodes_on_create<DB: CheatcodeBackend>(
         &self,
         ecx: &mut InnerEvmContext<DB>,
         inputs: &CreateInputs,
@@ -293,7 +293,7 @@ impl Cheatcodes {
     ///
     /// Cleanup any previously applied cheatcodes that altered the state in such
     /// a way that revm's revert would run into issues.
-    pub fn on_revert<DB: DatabaseExt>(&mut self, ecx: &mut EvmContext<DB>) {
+    pub fn on_revert<DB: CheatcodeBackend>(&mut self, ecx: &mut EvmContext<DB>) {
         trace!(deals=?self.eth_deals.len(), "rolling back deals");
 
         // Delay revert clean up until expected revert is handled, if set.
@@ -318,7 +318,7 @@ impl Cheatcodes {
     }
 }
 
-impl<DB: DatabaseExt> Inspector<DB> for Cheatcodes {
+impl<DB: CheatcodeBackend> Inspector<DB> for Cheatcodes {
     #[inline]
     fn initialize_interp(&mut self, _: &mut Interpreter, ecx: &mut EvmContext<DB>) {
         // When the first interpreter is initialized we've circumvented the balance and
@@ -1411,7 +1411,7 @@ impl<DB: DatabaseExt> Inspector<DB> for Cheatcodes {
     }
 }
 
-impl<DB: DatabaseExt> InspectorExt<DB> for Cheatcodes {
+impl<DB: CheatcodeBackend> InspectorExt<DB> for Cheatcodes {
     fn should_use_create2_factory(
         &mut self,
         ecx: &mut EvmContext<DB>,
@@ -1464,7 +1464,7 @@ fn disallowed_mem_write(
 }
 
 /// Dispatches the cheatcode call to the appropriate function.
-fn apply_dispatch<DB: DatabaseExt>(calls: &Vm::VmCalls, ccx: &mut CheatsCtxt<DB>) -> Result {
+fn apply_dispatch<DB: CheatcodeBackend>(calls: &Vm::VmCalls, ccx: &mut CheatsCtxt<DB>) -> Result {
     macro_rules! match_ {
         ($($variant:ident),*) => {
             match calls {

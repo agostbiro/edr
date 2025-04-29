@@ -18,7 +18,7 @@ use revm::{
 use super::BackendError;
 use crate::{
     backend::{
-        diagnostic::RevertDiagnostic, Backend, DatabaseExt, LocalForkId, RevertSnapshotAction,
+        diagnostic::RevertDiagnostic, Backend, CheatcodeBackend, LocalForkId, RevertSnapshotAction,
     },
     fork::{CreateFork, ForkId},
     InspectorExt,
@@ -122,7 +122,7 @@ impl<'a> CowBackend<'a> {
     }
 }
 
-impl DatabaseExt for CowBackend<'_> {
+impl CheatcodeBackend for CowBackend<'_> {
     fn snapshot(&mut self, journaled_state: &JournaledState, env: &Env) -> U256 {
         self.backend_mut(env).snapshot(journaled_state, env)
     }

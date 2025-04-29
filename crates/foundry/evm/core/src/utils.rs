@@ -4,13 +4,26 @@ use alloy_chains::NamedChain;
 use alloy_consensus::{BlockHeader, Typed2718};
 use alloy_json_abi::{Function, JsonAbi};
 use alloy_network::{AnyTxEnvelope, BlockResponse, Network};
-use alloy_primitives::{Address, PrimitiveSignature, Selector, B256, U256};
+use alloy_primitives::{Address, PrimitiveSignature, Selector, TxKind, B256, U256};
 use alloy_rpc_types::{Transaction, TransactionRequest};
-use revm::primitives::hardfork::SpecId;
 pub use revm::state::EvmState as StateChangeset;
+use revm::{
+    context::{BlockEnv, CfgEnv, TxEnv},
+    database_interface::WrapDatabaseRef,
+    interpreter::{
+        return_ok, CallInputs, CallOutcome, CallScheme, CallValue, CreateInputs, CreateOutcome,
+        CreateScheme, Gas, InstructionResult, InterpreterResult,
+    },
+    primitives::{hardfork::SpecId, B256 as KECCAK_EMPTY},
+    Context, Database, DatabaseRef,
+};
 
 pub use crate::ic::*;
-use crate::{constants::DEFAULT_CREATE2_DEPLOYER, InspectorExt};
+use crate::{
+    constants::DEFAULT_CREATE2_DEPLOYER,
+    evm_env::{EnvMut, EvmEnv},
+    InspectorExt,
+};
 
 /// Transaction identifier of System transaction types
 pub const SYSTEM_TRANSACTION_TYPE: u8 = 126;
@@ -24,17 +37,18 @@ pub const SYSTEM_TRANSACTION_TYPE: u8 = 126;
 /// Should be called with proper chain id (retrieved from provider if not
 /// provided).
 pub fn apply_chain_and_block_specific_env_changes<N: Network>(
-    env: &mut revm::primitives::Env,
+    env: &mut EvmEnv,
     block: &N::BlockResponse,
 ) {
-    if let Ok(chain) = NamedChain::try_from(env.cfg.chain_id) {
+    if let Ok(chain) = NamedChain::try_from(env.evm_env.cfg_env.chain_id) {
         let block_number = block.header().number();
 
         match chain {
             NamedChain::Mainnet => {
                 // after merge difficulty is supplanted with prevrandao EIP-4399
                 if block_number >= 15_537_351u64 {
-                    env.block.difficulty = env.block.prevrandao.unwrap_or_default().into();
+                    env.evm_env.block_env.difficulty =
+                        env.evm_env.block_env.prevrandao.unwrap_or_default().into();
                 }
 
                 return;
@@ -46,16 +60,16 @@ pub fn apply_chain_and_block_specific_env_changes<N: Network>(
                 // opcode but `prevrandao` (`mixHash`) is always zero, even
                 // though bsc adopts the newer EVM specification. This will
                 // confuse revm and causes emulation failure.
-                env.block.prevrandao = Some(env.block.difficulty.into());
+                env.evm_env.block_env.prevrandao = Some(env.evm_env.block_env.difficulty.into());
                 return;
             }
             NamedChain::Moonbeam
             | NamedChain::Moonbase
             | NamedChain::Moonriver
             | NamedChain::MoonbeamDev => {
-                if env.block.prevrandao.is_none() {
+                if env.evm_env.block_env.prevrandao.is_none() {
                     // <https://github.com/foundry-rs/foundry/issues/4232>
-                    env.block.prevrandao = Some(B256::random());
+                    env.evm_env.block_env.prevrandao = Some(B256::random());
                 }
             }
             c if c.is_arbitrum() => {
@@ -64,11 +78,9 @@ pub fn apply_chain_and_block_specific_env_changes<N: Network>(
                 if let Some(l1_block_number) = block
                     .other_fields()
                     .and_then(|other| other.get("l1BlockNumber").cloned())
-                    .and_then(|l1_block_number| {
-                        serde_json::from_value::<U256>(l1_block_number).ok()
-                    })
+                    .and_then(|v| v.as_u64())
                 {
-                    env.block.number = l1_block_number;
+                    env.evm_env.block_env.number = l1_block_number;
                 }
             }
             _ => {}
@@ -77,7 +89,8 @@ pub fn apply_chain_and_block_specific_env_changes<N: Network>(
 
     // if difficulty is `0` we assume it's past merge
     if block.header().difficulty().is_zero() {
-        env.block.difficulty = env.block.prevrandao.unwrap_or_default().into();
+        env.evm_env.block_env.difficulty =
+            env.evm_env.block_env.prevrandao.unwrap_or_default().into();
     }
 }
 
@@ -112,7 +125,10 @@ pub fn is_impersonated_sig(sig: &PrimitiveSignature, ty: u8) -> bool {
 }
 
 /// Configures the env for the given RPC transaction.
-pub fn configure_tx_env(env: &mut revm::primitives::Env, tx: &Transaction<AnyTxEnvelope>) {
+pub fn configure_tx_env(
+    env: &mut EvmEnv<BlockEnv, TxEnv, CfgEnv>,
+    tx: &Transaction<AnyTxEnvelope>,
+) {
     if let AnyTxEnvelope::Ethereum(tx) = &tx.inner {
         configure_tx_req_env(env, &tx.clone().into()).expect("cannot fail");
     }
@@ -120,7 +136,7 @@ pub fn configure_tx_env(env: &mut revm::primitives::Env, tx: &Transaction<AnyTxE
 
 /// Configures the env for the given RPC transaction request.
 pub fn configure_tx_req_env(
-    env: &mut revm::primitives::Env,
+    env: &mut EvmEnv<BlockEnv, TxEnv, CfgEnv>,
     tx: &TransactionRequest,
 ) -> eyre::Result<()> {
     let TransactionRequest {
@@ -143,35 +159,28 @@ pub fn configure_tx_req_env(
     } = *tx;
 
     // If no `to` field then set create kind: https://eips.ethereum.org/EIPS/eip-2470#deployment-transaction
-    env.tx.transact_to = to.unwrap_or(TxKind::Create);
+    env.tx.kind = to.unwrap_or(TxKind::Create);
     env.tx.caller = from.ok_or_else(|| eyre::eyre!("missing `from` field"))?;
     env.tx.gas_limit = gas.ok_or_else(|| eyre::eyre!("missing `gas` field"))?;
-    env.tx.nonce = nonce;
+    env.tx.nonce = nonce.unwrap_or_default();
     env.tx.value = value.unwrap_or_default();
     env.tx.data = input.input().cloned().unwrap_or_default();
     env.tx.chain_id = chain_id;
 
     // Type 1, EIP-2930
-    env.tx.access_list = access_list
-        .clone()
-        .unwrap_or_default()
-        .0
-        .into_iter()
-        .collect();
+    env.tx.access_list = access_list.clone().unwrap_or_default();
 
     // Type 2, EIP-1559
-    env.tx.gas_price = U256::from(gas_price.or(max_fee_per_gas).unwrap_or_default());
-    env.tx.gas_priority_fee = max_priority_fee_per_gas.map(U256::from);
+    env.tx.gas_price = gas_price.or(max_fee_per_gas).unwrap_or_default();
+    env.tx.gas_priority_fee = max_priority_fee_per_gas;
 
     // Type 3, EIP-4844
     env.tx.blob_hashes = blob_versioned_hashes.clone().unwrap_or_default();
-    env.tx.max_fee_per_blob_gas = max_fee_per_blob_gas.map(U256::from);
+    env.tx.max_fee_per_blob_gas = max_fee_per_blob_gas.unwrap_or_default();
 
     // Type 4, EIP-7702
     if let Some(authorization_list) = authorization_list {
-        env.tx.authorization_list = Some(revm::primitives::AuthorizationList::Signed(
-            authorization_list.clone(),
-        ));
+        env.tx.authorization_list = authorization_list.clone();
     }
 
     Ok(())
@@ -179,7 +188,7 @@ pub fn configure_tx_req_env(
 
 /// Get the gas used, accounting for refunds
 pub fn gas_used(spec: SpecId, spent: u64, refunded: u64) -> u64 {
-    let refund_quotient = if SpecId::enabled(spec, SpecId::LONDON) {
+    let refund_quotient = if SpecId::is_enabled_in(spec, SpecId::LONDON) {
         5
     } else {
         2
@@ -322,7 +331,7 @@ pub fn create2_handler_register<DB: revm::Database, I: InspectorExt<DB>>(
 /// Creates a new EVM with the given inspector.
 pub fn new_evm_with_inspector<'a, DB, I>(
     db: DB,
-    env: revm::primitives::EnvWithHandlerCfg,
+    env: &EvmEnv<BlockEnv, TxEnv, CfgEnv>,
     inspector: I,
 ) -> revm::Evm<'a, I, DB>
 where
