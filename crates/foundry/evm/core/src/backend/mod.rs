@@ -51,7 +51,7 @@ pub use in_memory_db::{EmptyDBWrapper, FoundryEvmInMemoryDB, MemDb};
 mod snapshot;
 pub use snapshot::{BackendSnapshot, RevertSnapshotAction, StateSnapshot};
 
-use crate::evm_env::EvmEnv;
+use crate::evm_env::{EvmEnv, TransactionEnvMut};
 
 // A `revm::Database` that is used in forking mode
 type ForkDB = CacheDB<SharedBackend>;
@@ -1099,7 +1099,7 @@ impl<InspectorT, BlockT, TxT, SpecT, JournalEntryT, InstructionProviderT, Precom
     > for Backend<JournalEntryT, SpecT>
 where
     BlockT: Block + Clone,
-    TxT: Transaction + Clone,
+    TxT: Transaction + TransactionEnvMut + Clone,
     SpecT: Into<SpecId> + Clone,
     JournalEntryT: JournalEntryTr,
     InstructionProviderT: InstructionProvider<
@@ -2050,20 +2050,22 @@ pub struct LaunchedWithFork {
 pub(crate) fn update_current_env_with_fork_env<BlockT, TxT, SpecT>(
     current: &mut EvmEnv<BlockT, TxT, SpecT>,
     fork: EvmEnv<BlockT, TxT, SpecT>,
-) {
+) where
+    TxT: Transaction + TransactionEnvMut,
+{
     current.block = fork.block;
     current.cfg = fork.cfg;
-    current.tx.chain_id = fork.tx.chain_id;
+    current.tx.set_chain_id(fork.tx.chain_id());
 }
 
 /// Clones the data of the given `accounts` from the `active` database into the
 /// `fork_db` This includes the data held in storage (`CacheDB`) and kept in the
 /// `JournaledState`.
-pub(crate) fn merge_account_data<ExtDB: DatabaseRef>(
+pub(crate) fn merge_account_data<ExtDB: DatabaseRef, JournalEntryT>(
     accounts: impl IntoIterator<Item = Address>,
     active: &CacheDB<ExtDB>,
     active_journaled_state: &mut JournalInner<JournalEntryT>,
-    target_fork: &mut Fork,
+    target_fork: &mut Fork<JournalEntryT>,
 ) {
     for addr in accounts {
         merge_db_account_data(addr, active, &mut target_fork.db);
@@ -2085,7 +2087,7 @@ pub(crate) fn merge_account_data<ExtDB: DatabaseRef>(
 
 /// Clones the account data from the `active_journaled_state`  into the
 /// `fork_journaled_state`
-fn merge_journaled_state_data(
+fn merge_journaled_state_data<JournalEntryT>(
     addr: Address,
     active_journaled_state: &JournalInner<JournalEntryT>,
     fork_journaled_state: &mut JournalInner<JournalEntryT>,
@@ -2113,18 +2115,21 @@ fn merge_db_account_data<ExtDB: DatabaseRef>(
 ) {
     trace!(?addr, "merging database data");
 
-    let Some(acc) = active.accounts.get(&addr) else {
+    let Some(acc) = active.cache.accounts.get(&addr) else {
         return;
     };
 
     // port contract cache over
-    if let Some(code) = active.contracts.get(&acc.info.code_hash) {
+    if let Some(code) = active.cache.contracts.get(&acc.info.code_hash) {
         trace!("merging contract cache");
-        fork_db.contracts.insert(acc.info.code_hash, code.clone());
+        fork_db
+            .cache
+            .contracts
+            .insert(acc.info.code_hash, code.clone());
     }
 
     // port account storage over
-    match fork_db.accounts.entry(addr) {
+    match fork_db.cache.accounts.entry(addr) {
         Entry::Vacant(vacant) => {
             trace!("target account not present - inserting from active");
             // if the fork_db doesn't have the target account
@@ -2183,19 +2188,19 @@ fn commit_transaction<
     tx: &RpcTransaction<AnyTxEnvelope>,
     mut env: EvmEnv<BlockT, TxT, SpecT>,
     journaled_state: &mut JournalInner<JournalEntryT>,
-    fork: &mut Fork,
+    fork: &mut Fork<JournalEntryT>,
     fork_id: &ForkId,
     persistent_accounts: &HashSet<Address>,
     inspector: InspectorT,
 ) -> eyre::Result<()> {
-    configure_tx_env(&mut env.env, tx);
+    configure_tx_env(&mut env, tx);
 
     let now = Instant::now();
     let res = {
         let fork = fork.clone();
         let journaled_state = journaled_state.clone();
         let db = Backend::new_with_fork(fork_id, fork, journaled_state);
-        crate::utils::new_evm_with_inspector(db, env, inspector)
+        crate::utils::new_evm_with_inspector(db, &env, inspector)
             .transact()
             .wrap_err("backend: failed committing transaction")?
     };
@@ -2231,7 +2236,7 @@ pub fn update_state<DB: Database>(
 fn apply_state_changeset<JournalEntryT: JournalEntryTr>(
     state: Map<revm::primitives::Address, Account>,
     journaled_state: &mut JournalInner<JournalEntryT>,
-    fork: &mut Fork,
+    fork: &mut Fork<JournalEntryT>,
     persistent_accounts: &HashSet<Address>,
 ) -> Result<(), DatabaseError> {
     // commit the state and update the loaded accounts

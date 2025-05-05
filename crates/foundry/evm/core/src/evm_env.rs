@@ -1,8 +1,19 @@
 use revm::{
     context::{BlockEnv, CfgEnv, Context, TxEnv},
-    context_interface::Cfg,
+    context_interface::JournalTr,
     primitives::hardfork::SpecId,
+    Database,
 };
+
+pub trait TransactionEnvMut {
+    fn set_chain_id(&mut self, chain_id: Option<u64>);
+}
+
+impl TransactionEnvMut for TxEnv {
+    fn set_chain_id(&mut self, chain_id: Option<u64>) {
+        self.chain_id = chain_id;
+    }
+}
 
 /// EVM execution environment
 #[derive(Clone, Debug)]
@@ -14,6 +25,9 @@ pub struct EvmEnv<BlockT, TxT, SpecT> {
 
 impl<BlockT, TxT, SpecT, DatabaseT, JournalT, ChainT>
     From<Context<BlockT, TxT, SpecT, DatabaseT, JournalT, ChainT>> for EvmEnv<BlockT, TxT, SpecT>
+where
+    DatabaseT: Database,
+    JournalT: JournalTr<Database = DatabaseT>,
 {
     fn from(value: Context<BlockT, TxT, SpecT, DatabaseT, JournalT, ChainT>) -> Self {
         Self {
@@ -43,7 +57,7 @@ impl<BlockT, TxT, SpecT> EvmEnv<BlockT, TxT, SpecT>
 where
     SpecT: Into<SpecId> + Copy,
 {
-    pub fn new_with_spec_id(mut env: Self<BlockT, TxT, SpecT>, spec_id: SpecT) -> Self {
+    pub fn new_with_spec_id(mut env: EvmEnv<BlockT, TxT, SpecT>, spec_id: SpecT) -> Self {
         env.cfg.spec = spec_id;
         env
     }
