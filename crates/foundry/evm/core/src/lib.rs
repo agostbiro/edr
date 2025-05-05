@@ -5,7 +5,14 @@
 #![warn(unused_crate_dependencies)]
 
 use auto_impl::auto_impl;
-use revm::{inspector::NoOpInspector, interpreter::CreateInputs, Database, Inspector};
+use revm::{
+    context::{Block, CfgEnv},
+    context_interface::Transaction,
+    inspector::NoOpInspector,
+    interpreter::{interpreter::EthInterpreter, CreateInputs},
+    primitives::hardfork::SpecId,
+    Context, Database, Inspector, Journal,
+};
 use revm_inspectors::access_list::AccessListInspector;
 
 #[macro_use]
@@ -30,10 +37,34 @@ pub mod utils;
 /// An extension trait that allows us to add additional hooks to Inspector for
 /// later use in handlers.
 #[auto_impl(&mut, Box)]
-pub trait InspectorExt<DB: Database>: Inspector<DB> {
+pub trait InspectorExt<BlockT, TxT, SpecT, DatabaseT, ChainContextT>:
+    Inspector<Context<BlockT, TxT, CfgEnv<SpecT>, DatabaseT, Journal<DatabaseT>, ChainContextT>>
+where
+    BlockT: Block,
+    TxT: Transaction,
+    SpecT: Into<SpecId> + Copy,
+    DatabaseT: Database,
+{
     // Simulates `console.log` invocation.
     fn console_log(&mut self, _input: String) {}
 }
 
-impl<DB: Database> InspectorExt<DB> for NoOpInspector {}
-impl<DB: Database> InspectorExt<DB> for AccessListInspector {}
+impl<BlockT, TxT, SpecT, DatabaseT, ChainContextT>
+    InspectorExt<BlockT, TxT, SpecT, DatabaseT, ChainContextT> for NoOpInspector
+where
+    BlockT: Block,
+    TxT: Transaction,
+    SpecT: Into<SpecId> + Copy,
+    DatabaseT: Database,
+{
+}
+
+impl<BlockT, TxT, SpecT, DatabaseT, ChainContextT>
+    InspectorExt<BlockT, TxT, SpecT, DatabaseT, ChainContextT> for AccessListInspector
+where
+    BlockT: Block,
+    TxT: Transaction,
+    SpecT: Into<SpecId> + Copy,
+    DatabaseT: Database,
+{
+}
