@@ -3,6 +3,7 @@
 use std::{
     borrow::Cow,
     collections::{BTreeMap, HashMap, HashSet},
+    marker::PhantomData,
     time::Instant,
 };
 
@@ -229,7 +230,7 @@ pub trait CheatcodeBackend<InspectorT, BlockT, TxT, SpecT, InstructionProviderT,
 
     /// Fetches the given transaction for the fork and executes it, committing
     /// the state in the DB
-    fn transact<I: InspectorExt<Backend<SpecT>>>(
+    fn transact<I: InspectorExt<Backend<BlockT, TxT, SpecT>>>(
         &mut self,
         id: Option<LocalForkId>,
         transaction: B256,
@@ -438,7 +439,7 @@ pub trait CheatcodeBackend<InspectorT, BlockT, TxT, SpecT, InstructionProviderT,
 /// active, then a snapshot is created before fork `B` is selected, then fork
 /// `A` will be the active fork again after reverting the snapshot.
 #[derive(Clone, Debug)]
-pub struct Backend<SpecT> {
+pub struct Backend<BlockT, TxT, SpecT> {
     /// The access point for managing forks
     forks: MultiFork,
     // The default in memory db
@@ -468,11 +469,13 @@ pub struct Backend<SpecT> {
     active_fork_ids: Option<(LocalForkId, ForkLookupIndex)>,
     /// holds additional Backend data
     inner: BackendInner<SpecT>,
+
+    phantom: PhantomData<(BlockT, TxT)>,
 }
 
 // === impl Backend ===
 
-impl<BlockT, TxT, SpecT> Backend<SpecT>
+impl<BlockT, TxT, SpecT> Backend<SpecT, BlockT, TxT>
 where
     BlockT: Block + Clone,
     TxT: Transaction + Clone,
@@ -501,6 +504,7 @@ where
             fork_init_journaled_state: inner.new_journaled_state(),
             active_fork_ids: None,
             inner,
+            phantom: PhantomData::default(),
         };
 
         if let Some(fork) = fork {
@@ -562,6 +566,7 @@ where
             fork_init_journaled_state: self.inner.new_journaled_state(),
             active_fork_ids: None,
             inner: BackendInner::default(),
+            phantom: PhantomData::default(),
         }
     }
 
@@ -915,7 +920,7 @@ where
 
     /// Returns the `EvmEnv` with the current `spec_id` set.
     fn env_with_handler_cfg(&self, env: EvmEnv<BlockT, TxT, SpecT>) -> EvmEnv<BlockT, TxT, SpecT> {
-        EvmEnv::new_with_spec_id(env, self.inner.spec_id)
+        EvmEnv::new_with_spec_id(env, &*self.inner.spec_id)
     }
 
     /// Executes the configured test call of the `env` without committing state
@@ -940,8 +945,11 @@ where
             .inspect_replay()
             .wrap_err("backend: failed while inspecting")?;
 
-        // TODO into()
-        env.env = evm.context.evm.inner.env;
+        let Context { block, tx, cfg, .. } = evm.data.ctx;
+
+        *env.block = block;
+        *env.tx = tx;
+        *env.cfg = cfg;
 
         Ok(res)
     }
@@ -1087,17 +1095,17 @@ where
 
 impl<InspectorT, BlockT, TxT, SpecT, InstructionProviderT, PrecompileT>
     CheatcodeBackend<InspectorT, BlockT, TxT, SpecT, InstructionProviderT, PrecompileT>
-    for Backend<SpecT>
+    for Backend<BlockT, TxT, SpecT>
 where
     BlockT: Block + Clone,
     TxT: Transaction + TransactionEnvMut + Clone,
     SpecT: Into<SpecId> + Clone,
     InstructionProviderT: InstructionProvider<
-            Context = Context<BlockT, TxT, CfgEnv<SpecT>, Backend<SpecT>>,
+            Context = Context<BlockT, TxT, CfgEnv<SpecT>, Backend<BlockT, TxT, SpecT>>,
             InterpreterTypes = EthInterpreter,
         > + Default,
     PrecompileT: PrecompileProvider<
-            Context<BlockT, TxT, CfgEnv<SpecT>, Backend<SpecT>>,
+            Context<BlockT, TxT, CfgEnv<SpecT>, Backend<BlockT, TxT, SpecT>>,
             Output = InterpreterResult,
         > + Default,
 {
@@ -1419,7 +1427,7 @@ where
         Ok(())
     }
 
-    fn transact<I: InspectorExt<Backend>>(
+    fn transact<I: InspectorExt<Backend<BlockT, TxT, SpecT>>>(
         &mut self,
         maybe_id: Option<LocalForkId>,
         transaction: B256,
@@ -1623,7 +1631,7 @@ where
     }
 }
 
-impl<SpecT> DatabaseRef for Backend<SpecT> {
+impl<BlockT, TxT, SpecT> DatabaseRef for Backend<BlockT, TxT, SpecT> {
     type Error = DatabaseError;
 
     fn basic_ref(&self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
@@ -1659,7 +1667,7 @@ impl<SpecT> DatabaseRef for Backend<SpecT> {
     }
 }
 
-impl<SpecT> DatabaseCommit for Backend<SpecT> {
+impl<BlockT, TxT, SpecT> DatabaseCommit for Backend<BlockT, TxT, SpecT> {
     fn commit(&mut self, changes: Map<Address, Account>) {
         if let Some(db) = self.active_fork_db_mut() {
             db.commit(changes);
@@ -1669,7 +1677,7 @@ impl<SpecT> DatabaseCommit for Backend<SpecT> {
     }
 }
 
-impl<SpecT> Database for Backend<SpecT> {
+impl<BlockT, TxT, SpecT> Database for Backend<BlockT, TxT, SpecT> {
     type Error = DatabaseError;
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
         if let Some(db) = self.active_fork_db_mut() {
