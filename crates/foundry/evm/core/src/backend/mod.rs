@@ -10,6 +10,7 @@ use alloy_genesis::GenesisAccount;
 use alloy_network::{AnyRpcBlock, AnyTxEnvelope, TransactionResponse};
 use alloy_primitives::{address, b256, keccak256, map::Entry, Address, TxKind, B256, U256};
 use alloy_rpc_types::{BlockNumberOrTag, Transaction as RpcTransaction};
+use eyre::WrapErr;
 pub use foundry_fork_db::{cache::BlockchainDbMeta, BlockchainDb, SharedBackend};
 use revm::{
     bytecode::Bytecode,
@@ -92,7 +93,7 @@ const SYSTEM_TRANSACTION_TYPE: u8 = 126;
 /// An extension trait that allows us to easily extend the `revm::Inspector`
 /// capabilities for cheatcodes
 #[auto_impl::auto_impl(&mut)]
-pub trait CheatcodeBackend<InspectorT, BlockT, TxT, CfgT, InstructionProviderT, PrecompileT>:
+pub trait CheatcodeBackend<InspectorT, BlockT, TxT, SpecT, InstructionProviderT, PrecompileT>:
     Database
 {
     /// Creates a new snapshot at the current point of execution.
@@ -104,7 +105,7 @@ pub trait CheatcodeBackend<InspectorT, BlockT, TxT, CfgT, InstructionProviderT, 
     fn snapshot(
         &mut self,
         journaled_state: &JournalInner<JournalEntry>,
-        env: &EvmEnv<BlockT, TxT, CfgT>,
+        env: &EvmEnv<BlockT, TxT, CfgEnv<SpecT>>,
     ) -> U256;
 
     /// Reverts the snapshot if it exists
@@ -115,8 +116,8 @@ pub trait CheatcodeBackend<InspectorT, BlockT, TxT, CfgT, InstructionProviderT, 
     /// **N.B.** While this reverts the state of the evm to the snapshot, it
     /// keeps new logs made since the snapshots was created. This way we can
     /// show logs that were emitted between snapshot and its revert.
-    /// This will also revert any changes in the `EvmEnv<BlockT, TxT, CfgT>` and
-    /// replace it with the captured `EvmEnv<BlockT, TxT, CfgT>` of
+    /// This will also revert any changes in the `EvmEnv<BlockT, TxT, CfgEnv<SpecT>>` and
+    /// replace it with the captured `EvmEnv<BlockT, TxT, CfgEnv<SpecT>>` of
     /// `Self::snapshot`.
     ///
     /// Depending on [RevertSnapshotAction] it will keep the snapshot alive or
@@ -125,7 +126,7 @@ pub trait CheatcodeBackend<InspectorT, BlockT, TxT, CfgT, InstructionProviderT, 
         &mut self,
         id: U256,
         journaled_state: &JournalInner<JournalEntry>,
-        env: &mut EvmEnv<BlockT, TxT, CfgT>,
+        env: &mut EvmEnv<BlockT, TxT, CfgEnv<SpecT>>,
         action: RevertSnapshotAction,
     ) -> Option<JournalInner<JournalEntry>>;
 
@@ -144,7 +145,7 @@ pub trait CheatcodeBackend<InspectorT, BlockT, TxT, CfgT, InstructionProviderT, 
     fn create_select_fork(
         &mut self,
         fork: CreateFork,
-        env: &mut EvmEnv<BlockT, TxT, CfgT>,
+        env: &mut EvmEnv<BlockT, TxT, CfgEnv<SpecT>>,
         journaled_state: &mut JournalInner<JournalEntry>,
     ) -> eyre::Result<LocalForkId> {
         let id = self.create_fork(fork)?;
@@ -158,7 +159,7 @@ pub trait CheatcodeBackend<InspectorT, BlockT, TxT, CfgT, InstructionProviderT, 
     fn create_select_fork_at_transaction(
         &mut self,
         fork: CreateFork,
-        env: &mut EvmEnv<BlockT, TxT, CfgT>,
+        env: &mut EvmEnv<BlockT, TxT, CfgEnv<SpecT>>,
         journaled_state: &mut JournalInner<JournalEntry>,
         transaction: B256,
     ) -> eyre::Result<LocalForkId> {
@@ -179,7 +180,7 @@ pub trait CheatcodeBackend<InspectorT, BlockT, TxT, CfgT, InstructionProviderT, 
 
     /// Selects the fork's state
     ///
-    /// This will also modify the current `EvmEnv<BlockT, TxT, CfgT>`.
+    /// This will also modify the current `EvmEnv<BlockT, TxT, CfgEnv<SpecT>>`.
     ///
     /// **Note**: this does not change the local state, but swaps the remote
     /// state
@@ -190,7 +191,7 @@ pub trait CheatcodeBackend<InspectorT, BlockT, TxT, CfgT, InstructionProviderT, 
     fn select_fork(
         &mut self,
         id: LocalForkId,
-        env: &mut EvmEnv<BlockT, TxT, CfgT>,
+        env: &mut EvmEnv<BlockT, TxT, CfgEnv<SpecT>>,
         journaled_state: &mut JournalInner<JournalEntry>,
     ) -> eyre::Result<()>;
 
@@ -205,7 +206,7 @@ pub trait CheatcodeBackend<InspectorT, BlockT, TxT, CfgT, InstructionProviderT, 
         &mut self,
         id: Option<LocalForkId>,
         block_number: u64,
-        env: &mut EvmEnv<BlockT, TxT, CfgT>,
+        env: &mut EvmEnv<BlockT, TxT, CfgEnv<SpecT>>,
         journaled_state: &mut JournalInner<JournalEntry>,
     ) -> eyre::Result<()>;
 
@@ -222,17 +223,17 @@ pub trait CheatcodeBackend<InspectorT, BlockT, TxT, CfgT, InstructionProviderT, 
         &mut self,
         id: Option<LocalForkId>,
         transaction: B256,
-        env: &mut EvmEnv<BlockT, TxT, CfgT>,
+        env: &mut EvmEnv<BlockT, TxT, CfgEnv<SpecT>>,
         journaled_state: &mut JournalInner<JournalEntry>,
     ) -> eyre::Result<()>;
 
     /// Fetches the given transaction for the fork and executes it, committing
     /// the state in the DB
-    fn transact<I: InspectorExt<Backend>>(
+    fn transact<I: InspectorExt<Backend<SpecT>>>(
         &mut self,
         id: Option<LocalForkId>,
         transaction: B256,
-        env: &mut EvmEnv<BlockT, TxT, CfgT>,
+        env: &mut EvmEnv<BlockT, TxT, CfgEnv<SpecT>>,
         journaled_state: &mut JournalInner<JournalEntry>,
         inspector: &mut I,
     ) -> eyre::Result<()>
@@ -414,7 +415,7 @@ pub trait CheatcodeBackend<InspectorT, BlockT, TxT, CfgT, InstructionProviderT, 
 /// be used by the `db`. However, their state can be hot-swapped by swapping the
 /// read half of `db` from one fork to another.
 /// When swapping forks (`Backend::select_fork()`) we also update the current
-/// `EvmEnv<BlockT, TxT, CfgT>` of the `EVM` accordingly, so that all `block.*`
+/// `EvmEnv<BlockT, TxT, CfgEnv<SpecT>>` of the `EVM` accordingly, so that all `block.*`
 /// config values match
 ///
 /// When another for is selected [`CheatcodeBackend::select_fork()`] the entire
@@ -475,7 +476,7 @@ impl<BlockT, TxT, SpecT> Backend<SpecT>
 where
     BlockT: Block + Clone,
     TxT: Transaction + Clone,
-    SpecT: Into<SpecId> + Clone,
+    SpecT: Into<SpecId> + Copy,
 {
     /// Creates a new Backend with a spawned multi fork thread.
     pub fn spawn(fork: Option<CreateFork>) -> Self {
@@ -928,10 +929,10 @@ where
         inspector: I,
     ) -> eyre::Result<ResultAndState> {
         self.initialize(env);
-        let mut evm = crate::utils::new_evm_with_inspector(self, env.clone(), inspector);
+        let mut evm = crate::utils::new_evm_with_inspector(self, env.clone(), inspector, todo!("chain context"));
 
         let res = evm
-            .transact()
+            .inspect_replay()
             .wrap_err("backend: failed while inspecting")?;
 
         // TODO into()
