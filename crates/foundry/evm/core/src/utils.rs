@@ -196,14 +196,14 @@ pub fn gas_used(spec: SpecId, spent: u64, refunded: u64) -> u64 {
 
 /// Creates a new EVM with the given inspector.
 pub fn new_evm_with_inspector<
+    InstructionProviderT,
+    PrecompileT,
     BlockT,
     TxT,
     SpecT,
     DatabaseT,
     ChainContextT,
     InspectorT,
-    InstructionProviderT,
-    PrecompileT,
 >(
     db: DatabaseT,
     env: EvmEnv<BlockEnv, TxEnv, SpecT>,
@@ -216,13 +216,6 @@ pub fn new_evm_with_inspector<
     PrecompileT,
 >
 where
-    InspectorT: Inspector<
-        Context<BlockT, TxT, CfgEnv<SpecT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
-        EthInterpreter,
-    >,
-    BlockT: Block,
-    TxT: Transaction,
-    SpecT: Copy,
     InstructionProviderT: InstructionProvider<
             Context = Context<
                 BlockT,
@@ -238,6 +231,14 @@ where
             Context<BlockT, TxT, CfgEnv<SpecT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
             Output = InterpreterResult,
         > + Default,
+    InspectorT: Inspector<
+        Context<BlockT, TxT, CfgEnv<SpecT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+        EthInterpreter,
+    >,
+    BlockT: Block,
+    TxT: Transaction,
+    SpecT: Into<SpecId> + Copy,
+    DatabaseT: Database,
 {
     let mut journaled_state = Journal::new(db);
     journaled_state.set_spec_id(env.cfg.spec);
@@ -250,6 +251,7 @@ where
         chain,
         error: Ok(()),
     };
+
     Evm::new_with_inspector(
         context,
         inspector,
@@ -260,21 +262,34 @@ where
 
 #[cfg(test)]
 mod tests {
+    use revm::{
+        database_interface::EmptyDB,
+        handler::{instructions::EthInstructions, EthPrecompiles},
+        inspector::NoOpInspector,
+        ExecuteEvm,
+    };
+
     use super::*;
 
     #[test]
     fn build_evm() {
-        let mut db = revm::db::EmptyDB::default();
+        let mut db = EmptyDB::default();
 
-        let env = Box::<revm::primitives::Env>::default();
-        let spec = SpecId::LATEST;
-        let handler_cfg = revm::primitives::HandlerCfg::new(spec);
-        let cfg = revm::primitives::EnvWithHandlerCfg::new(env, handler_cfg);
+        let env = EvmEnv::default_mainnet_with_spec_id(SpecId::default());
 
-        let mut inspector = revm::inspectors::NoOpInspector;
+        let mut inspector = NoOpInspector;
 
-        let mut evm = new_evm_with_inspector(&mut db, cfg, &mut inspector);
-        let result = evm.transact().unwrap();
+        let mut evm = new_evm_with_inspector::<
+            EthInstructions<EthInterpreter, _>,
+            EthPrecompiles,
+            _,
+            _,
+            _,
+            _,
+            _,
+            _,
+        >(&mut db, env, &mut inspector, ());
+        let result = evm.transact(Default::default()).unwrap();
         assert!(result.result.is_success());
     }
 }
