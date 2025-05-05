@@ -5,25 +5,23 @@ use alloy_consensus::{BlockHeader, Typed2718};
 use alloy_json_abi::{Function, JsonAbi};
 use alloy_network::{AnyTxEnvelope, BlockResponse, Network};
 use alloy_primitives::{Address, PrimitiveSignature, Selector, TxKind, B256, U256};
-use alloy_rpc_types::{Transaction, TransactionRequest};
+use alloy_rpc_types::{Transaction as RpcTransaction, TransactionRequest};
 pub use revm::state::EvmState as StateChangeset;
 use revm::{
-    context::{BlockEnv, CfgEnv, TxEnv},
+    context::{BlockEnv, CfgEnv, Evm, EvmData, TxEnv},
+    context_interface::{Block, JournalTr, Transaction},
     database_interface::WrapDatabaseRef,
+    handler::{instructions::InstructionProvider, PrecompileProvider},
     interpreter::{
-        return_ok, CallInputs, CallOutcome, CallScheme, CallValue, CreateInputs, CreateOutcome,
-        CreateScheme, Gas, InstructionResult, InterpreterResult,
+        interpreter::EthInterpreter, return_ok, CallInputs, CallOutcome, CallScheme, CallValue,
+        CreateInputs, CreateOutcome, CreateScheme, Gas, InstructionResult, InterpreterResult,
     },
     primitives::{hardfork::SpecId, B256 as KECCAK_EMPTY},
-    Context, Database, DatabaseRef,
+    Context, Database, DatabaseRef, Inspector, Journal,
 };
 
 pub use crate::ic::*;
-use crate::{
-    constants::DEFAULT_CREATE2_DEPLOYER,
-    evm_env::{EnvMut, EvmEnv},
-    InspectorExt,
-};
+use crate::{constants::DEFAULT_CREATE2_DEPLOYER, evm_env::EvmEnv, InspectorExt};
 
 /// Transaction identifier of System transaction types
 pub const SYSTEM_TRANSACTION_TYPE: u8 = 126;
@@ -127,7 +125,7 @@ pub fn is_impersonated_sig(sig: &PrimitiveSignature, ty: u8) -> bool {
 /// Configures the env for the given RPC transaction.
 pub fn configure_tx_env(
     env: &mut EvmEnv<BlockEnv, TxEnv, CfgEnv>,
-    tx: &Transaction<AnyTxEnvelope>,
+    tx: &RpcTransaction<AnyTxEnvelope>,
 ) {
     if let AnyTxEnvelope::Ethereum(tx) = &tx.inner {
         configure_tx_req_env(env, &tx.clone().into()).expect("cannot fail");
@@ -329,37 +327,67 @@ pub fn create2_handler_register<DB: revm::Database, I: InspectorExt<DB>>(
 }
 
 /// Creates a new EVM with the given inspector.
-pub fn new_evm_with_inspector<'a, DB, I>(
-    db: DB,
-    env: &EvmEnv<BlockEnv, TxEnv, CfgEnv>,
-    inspector: I,
-) -> revm::Evm<'a, I, DB>
+pub fn new_evm_with_inspector<
+    BlockT,
+    TxT,
+    SpecT,
+    DatabaseT,
+    ChainContextT,
+    InspectorT,
+    InstructionProviderT,
+    PrecompileT,
+>(
+    db: DatabaseT,
+    env: EvmEnv<BlockEnv, TxEnv, SpecT>,
+    inspector: InspectorT,
+    chain: ChainContextT,
+) -> Evm<
+    Context<BlockT, TxT, SpecT, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+    InspectorT,
+    InstructionProviderT,
+    PrecompileT,
+>
 where
-    DB: revm::Database,
-    I: InspectorExt<DB>,
+    InspectorT: Inspector<
+        Context<BlockT, TxT, CfgEnv<SpecT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+        EthInterpreter,
+    >,
+    BlockT: Block,
+    TxT: Transaction,
+    SpecT: Copy,
+    InstructionProviderT: InstructionProvider<
+            Context = Context<
+                BlockT,
+                TxT,
+                CfgEnv<SpecT>,
+                DatabaseT,
+                Journal<DatabaseT>,
+                ChainContextT,
+            >,
+            InterpreterTypes = EthInterpreter,
+        > + Default,
+    PrecompileT: PrecompileProvider<
+            Context<BlockT, TxT, CfgEnv<SpecT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+            Output = InterpreterResult,
+        > + Default,
 {
-    // NOTE: We could use `revm::Evm::builder()` here, but on the current patch it
-    // has some performance issues.
-    let revm::primitives::EnvWithHandlerCfg { env, handler_cfg } = env;
-    let context = revm::Context::new(revm::EvmContext::new_with_env(db, env), inspector);
-    let mut handler = revm::Handler::new(handler_cfg);
-    handler.append_handler_register_plain(revm::inspector_handle_register);
-    handler.append_handler_register_plain(create2_handler_register);
-    revm::Evm::new(context, handler)
-}
+    let mut journaled_state = Journal::new(db);
+    journaled_state.set_spec_id(env.cfg.spec);
 
-/// Creates a new EVM with the given inspector and wraps the database in a
-/// `WrapDatabaseRef`.
-pub fn new_evm_with_inspector_ref<'a, DB, I>(
-    db: DB,
-    env: revm::primitives::EnvWithHandlerCfg,
-    inspector: I,
-) -> revm::Evm<'a, I, WrapDatabaseRef<DB>>
-where
-    DB: revm::DatabaseRef,
-    I: InspectorExt<WrapDatabaseRef<DB>>,
-{
-    new_evm_with_inspector(WrapDatabaseRef(db), env, inspector)
+    let context = Context {
+        tx: env.tx,
+        block: env.block,
+        cfg: env.cfg,
+        journaled_state,
+        chain,
+        error: Ok(()),
+    };
+    Evm::new_with_inspector(
+        context,
+        inspector,
+        InstructionProviderT::default(),
+        PrecompileT::default(),
+    )
 }
 
 #[cfg(test)]
