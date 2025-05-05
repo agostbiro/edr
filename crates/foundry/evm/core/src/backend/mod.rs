@@ -10,7 +10,6 @@ use alloy_genesis::GenesisAccount;
 use alloy_network::{AnyRpcBlock, AnyTxEnvelope, TransactionResponse};
 use alloy_primitives::{address, b256, keccak256, map::Entry, Address, TxKind, B256, U256};
 use alloy_rpc_types::{BlockNumberOrTag, Transaction as RpcTransaction};
-use eyre::Context;
 pub use foundry_fork_db::{cache::BlockchainDbMeta, BlockchainDb, SharedBackend};
 use revm::{
     bytecode::Bytecode,
@@ -19,11 +18,13 @@ use revm::{
         block::BlobExcessGasAndPrice, result::ResultAndState, Block, JournalTr, Transaction,
     },
     database::{CacheDB, DatabaseRef},
+    handler::{instructions::InstructionProvider, PrecompileProvider},
     inspector::NoOpInspector,
+    interpreter::{interpreter::EthInterpreter, InterpreterResult},
     precompile::{PrecompileSpecId, Precompiles},
     primitives::{hardfork::SpecId, HashMap as Map, Log, KECCAK_EMPTY},
     state::{Account, AccountInfo, EvmState, EvmStorageSlot},
-    Database, DatabaseCommit, InspectEvm, JournalEntry,
+    Context, Database, DatabaseCommit, InspectEvm, JournalEntry,
 };
 use serde::{Deserialize, Serialize};
 
@@ -50,7 +51,7 @@ pub use in_memory_db::{EmptyDBWrapper, FoundryEvmInMemoryDB, MemDb};
 mod snapshot;
 pub use snapshot::{BackendSnapshot, RevertSnapshotAction, StateSnapshot};
 
-use crate::evm_env::{CfgMut, EvmEnv};
+use crate::evm_env::EvmEnv;
 
 // A `revm::Database` that is used in forking mode
 type ForkDB = CacheDB<SharedBackend>;
@@ -443,7 +444,7 @@ pub trait CheatcodeBackend<
 /// active, then a snapshot is created before fork `B` is selected, then fork
 /// `A` will be the active fork again after reverting the snapshot.
 #[derive(Clone, Debug)]
-pub struct Backend<JournalEntryT: JournalEntryTr> {
+pub struct Backend<JournalEntryT, SpecT> {
     /// The access point for managing forks
     forks: MultiFork,
     // The default in memory db
@@ -472,17 +473,17 @@ pub struct Backend<JournalEntryT: JournalEntryTr> {
     /// If this is set, then the Backend is currently in forking mode
     active_fork_ids: Option<(LocalForkId, ForkLookupIndex)>,
     /// holds additional Backend data
-    inner: BackendInner,
+    inner: BackendInner<JournalEntryT, SpecT>,
 }
 
 // === impl Backend ===
 
-impl<BlockT, TxT, CfgT, JournalEntryT> Backend<JournalEntryT>
+impl<BlockT, TxT, SpecT, JournalEntryT> Backend<JournalEntryT, SpecT>
 where
     BlockT: Block + Clone,
     TxT: Transaction + Clone,
-    CfgT: Cfg + CfgMut + Clone,
-    JournalEntryT: JournalEntryTr,
+    SpecT: Into<SpecId> + Clone,
+    JournalEntryT: JournalEntryTr + Clone,
 {
     /// Creates a new Backend with a spawned multi fork thread.
     pub fn spawn(fork: Option<CreateFork>) -> Self {
@@ -540,7 +541,7 @@ where
     /// and sets the fork as active
     pub(crate) fn new_with_fork(
         id: &ForkId,
-        fork: Fork,
+        fork: Fork<JournalEntryT>,
         journaled_state: JournalInner<JournalEntryT>,
     ) -> Self {
         let mut backend = Self::spawn(None);
@@ -610,7 +611,7 @@ where
     }
 
     /// Returns all snapshots created in this backend
-    pub fn snapshots(&self) -> &Snapshots<BackendSnapshot<BackendDatabaseSnapshot>> {
+    pub fn snapshots(&self) -> &Snapshots<BackendSnapshot<BackendDatabaseSnapshot<JournalEntryT>>> {
         &self.inner.snapshots
     }
 
@@ -794,7 +795,7 @@ where
     pub(crate) fn update_fork_db(
         &self,
         active_journaled_state: &mut JournalInner<JournalEntryT>,
-        target_fork: &mut Fork,
+        target_fork: &mut Fork<JournalEntryT>,
     ) {
         debug_assert!(
             self.inner.test_contract_address.is_some(),
@@ -814,7 +815,7 @@ where
         &self,
         accounts: impl IntoIterator<Item = Address>,
         active_journaled_state: &mut JournalInner<JournalEntryT>,
-        target_fork: &mut Fork,
+        target_fork: &mut Fork<JournalEntryT>,
     ) {
         if let Some((_, fork_idx)) = self.active_fork_ids.as_ref() {
             let active = self.inner.get_fork(*fork_idx);
@@ -842,13 +843,13 @@ where
     }
 
     /// Returns the currently active `Fork`, if any
-    pub fn active_fork(&self) -> Option<&Fork> {
+    pub fn active_fork(&self) -> Option<&Fork<JournalEntryT>> {
         self.active_fork_ids
             .map(|(_, idx)| self.inner.get_fork(idx))
     }
 
     /// Returns the currently active `Fork`, if any
-    pub fn active_fork_mut(&mut self) -> Option<&mut Fork> {
+    pub fn active_fork_mut(&mut self) -> Option<&mut Fork<JournalEntryT>> {
         self.active_fork_ids
             .map(|(_, idx)| self.inner.get_fork_mut(idx))
     }
@@ -864,7 +865,7 @@ where
     }
 
     /// Creates a snapshot of the currently active database
-    pub(crate) fn create_db_snapshot(&self) -> BackendDatabaseSnapshot {
+    pub(crate) fn create_db_snapshot(&self) -> BackendDatabaseSnapshot<JournalEntryT> {
         if let Some((id, idx)) = self.active_fork_ids {
             let fork = self.inner.get_fork(idx).clone();
             let fork_id = self.inner.ensure_fork_id(id).cloned().expect("Exists; qed");
@@ -902,7 +903,7 @@ where
     ///
     /// We need to track these mainly to prevent issues when switching between
     /// different evms
-    pub(crate) fn initialize(&mut self, env: &EvmEnv<BlockT, TxT, CfgT>) {
+    pub(crate) fn initialize(&mut self, env: &EvmEnv<BlockT, TxT, SpecT>) {
         self.set_caller(env.tx.caller());
         self.set_spec_id(env.cfg.spec());
 
@@ -920,7 +921,7 @@ where
     }
 
     /// Returns the `EvmEnv` with the current `spec_id` set.
-    fn env_with_handler_cfg(&self, env: EvmEnv<BlockT, TxT, CfgT>) -> EvmEnv<BlockT, TxT, CfgT> {
+    fn env_with_handler_cfg(&self, env: EvmEnv<BlockT, TxT, SpecT>) -> EvmEnv<BlockT, TxT, SpecT> {
         EvmEnv::new_with_spec_id(env, self.inner.spec_id)
     }
 
@@ -931,7 +932,7 @@ where
     /// environment, this will update the given `env` with the new values.
     pub fn inspect<'a, I: InspectorExt<&'a mut Self>>(
         &'a mut self,
-        env: &mut EvmEnv<BlockT, TxT, CfgT>,
+        env: &mut EvmEnv<BlockT, TxT, SpecT>,
         inspector: I,
     ) -> eyre::Result<ResultAndState> {
         self.initialize(env);
@@ -1042,7 +1043,7 @@ where
     pub fn replay_until(
         &mut self,
         id: LocalForkId,
-        env: EvmEnv<BlockT, TxT, CfgT>,
+        env: EvmEnv<BlockT, TxT, SpecT>,
         tx_hash: B256,
         journaled_state: &mut JournalInner<JournalEntryT>,
     ) -> eyre::Result<Option<RpcTransaction<AnyTxEnvelope>>> {
@@ -1067,7 +1068,7 @@ where
 
             if tx.tx_hash() == tx_hash {
                 // found the target transaction
-                return Ok(Some(tx.inner));
+                return Ok(Some(tx.inner.clone()));
             }
             trace!(tx=?tx.tx_hash(), "committing transaction");
 
@@ -1086,11 +1087,34 @@ where
     }
 }
 
-impl CheatcodeBackend for Backend {
+impl<InspectorT, BlockT, TxT, SpecT, JournalEntryT, InstructionProviderT, PrecompileT>
+    CheatcodeBackend<
+        InspectorT,
+        BlockT,
+        TxT,
+        SpecT,
+        JournalEntryT,
+        InstructionProviderT,
+        PrecompileT,
+    > for Backend<JournalEntryT, SpecT>
+where
+    BlockT: Block + Clone,
+    TxT: Transaction + Clone,
+    SpecT: Into<SpecId> + Clone,
+    JournalEntryT: JournalEntryTr,
+    InstructionProviderT: InstructionProvider<
+            Context = Context<BlockT, TxT, CfgEnv<SpecT>, Backend<JournalEntryT, SpecT>>,
+            InterpreterTypes = EthInterpreter,
+        > + Default,
+    PrecompileT: PrecompileProvider<
+            Context<BlockT, TxT, CfgEnv<SpecT>, Backend<JournalEntryT, SpecT>>,
+            Output = InterpreterResult,
+        > + Default,
+{
     fn snapshot(
         &mut self,
         journaled_state: &JournalInner<JournalEntryT>,
-        env: &EvmEnv<BlockT, TxT, CfgT>,
+        env: &EvmEnv<BlockT, TxT, SpecT>,
     ) -> U256 {
         trace!("create snapshot");
         let id = self.inner.snapshots.insert(BackendSnapshot::new(
@@ -1106,7 +1130,7 @@ impl CheatcodeBackend for Backend {
         &mut self,
         id: U256,
         current_state: &JournalInner<JournalEntryT>,
-        current: &mut EvmEnv<BlockT, TxT, CfgT>,
+        current: &mut EvmEnv<BlockT, TxT, SpecT>,
         action: RevertSnapshotAction,
     ) -> Option<JournalInner<JournalEntryT>> {
         trace!(?id, "revert snapshot");
@@ -1136,7 +1160,7 @@ impl CheatcodeBackend for Backend {
                     // there might be the case where the snapshot was created during `setUp` with
                     // another caller, so we need to ensure the caller account is present in the
                     // journaled state and database
-                    let caller = current.tx.caller;
+                    let caller = current.tx.caller();
                     journaled_state.state.entry(caller).or_insert_with(|| {
                         let caller_account = current_state
                             .state
@@ -1144,7 +1168,7 @@ impl CheatcodeBackend for Backend {
                             .map(|acc| acc.info.clone())
                             .unwrap_or_default();
 
-                        if !fork.db.accounts.contains_key(&caller) {
+                        if !fork.db.cache.accounts.contains_key(&caller) {
                             // update the caller account which is required by the evm
                             fork.db.insert_account_info(caller, caller_account.clone());
                         }
@@ -1217,7 +1241,7 @@ impl CheatcodeBackend for Backend {
     fn select_fork(
         &mut self,
         id: LocalForkId,
-        env: &mut EvmEnv<BlockT, TxT, CfgT>,
+        env: &mut EvmEnv<BlockT, TxT, SpecT>,
         active_journaled_state: &mut JournalInner<JournalEntryT>,
     ) -> eyre::Result<()> {
         trace!(?id, "select fork");
@@ -1239,8 +1263,8 @@ impl CheatcodeBackend for Backend {
         if let Some(active) = self.active_fork_mut() {
             active.journaled_state = active_journaled_state.clone();
 
-            let caller = env.tx.caller;
-            let caller_account = active.journaled_state.state.get(&env.tx.caller).cloned();
+            let caller = env.tx.caller();
+            let caller_account = active.journaled_state.state.get(&env.tx.caller()).cloned();
             let target_fork = self.inner.get_fork_mut(idx);
 
             // depth 0 will be the default value when the fork was created
@@ -1282,15 +1306,15 @@ impl CheatcodeBackend for Backend {
             // another edge case where a fork is created and selected during setup with not
             // necessarily the same caller as for the test, however we must always
             // ensure that fork's state contains the current sender
-            let caller = env.tx.caller;
+            let caller = env.tx.caller();
             fork.journaled_state.state.entry(caller).or_insert_with(|| {
                 let caller_account = active_journaled_state
                     .state
-                    .get(&env.tx.caller)
+                    .get(&env.tx.caller())
                     .map(|acc| acc.info.clone())
                     .unwrap_or_default();
 
-                if !fork.db.accounts.contains_key(&caller) {
+                if !fork.db.cache.accounts.contains_key(&caller) {
                     // update the caller account which is required by the evm
                     fork.db.insert_account_info(caller, caller_account.clone());
                 }
@@ -1316,7 +1340,7 @@ impl CheatcodeBackend for Backend {
         &mut self,
         id: Option<LocalForkId>,
         block_number: u64,
-        env: &mut EvmEnv<BlockT, TxT, CfgT>,
+        env: &mut EvmEnv<BlockT, TxT, SpecT>,
         journaled_state: &mut JournalInner<JournalEntryT>,
     ) -> eyre::Result<()> {
         trace!(?id, ?block_number, "roll fork");
@@ -1369,7 +1393,7 @@ impl CheatcodeBackend for Backend {
                             );
                         }
                     } else {
-                        let _ = active.journaled_state.load_account(*addr, &mut active.db);
+                        let _ = active.journaled_state.load_account(&mut active.db, *addr);
                     }
                 }
 
@@ -1383,7 +1407,7 @@ impl CheatcodeBackend for Backend {
         &mut self,
         id: Option<LocalForkId>,
         transaction: B256,
-        env: &mut EvmEnv<BlockT, TxT, CfgT>,
+        env: &mut EvmEnv<BlockT, TxT, SpecT>,
         journaled_state: &mut JournalInner<JournalEntryT>,
     ) -> eyre::Result<()> {
         trace!(?id, ?transaction, "roll fork to transaction");
@@ -1409,7 +1433,7 @@ impl CheatcodeBackend for Backend {
         &mut self,
         maybe_id: Option<LocalForkId>,
         transaction: B256,
-        env: &mut EvmEnv<BlockT, TxT, CfgT>,
+        env: &mut EvmEnv<BlockT, TxT, SpecT>,
         journaled_state: &mut JournalInner<JournalEntryT>,
         inspector: &mut I,
     ) -> eyre::Result<()> {
@@ -1532,7 +1556,7 @@ impl CheatcodeBackend for Backend {
         for (addr, acc) in allocs.iter() {
             // Fetch the account from the journaled state. Will create a new account if it
             // does not already exist.
-            let mut state_acc = journaled_state.load_account(*addr, self)?;
+            let mut state_acc = journaled_state.load_account(self, *addr)?;
 
             // Set the account's bytecode and code hash, if the `bytecode` field is present.
             if let Some(bytecode) = acc.code.as_ref() {
@@ -1567,7 +1591,7 @@ impl CheatcodeBackend for Backend {
 
             // Touch the account to ensure the loaded information persists if called in
             // `setUp`.
-            journaled_state.touch(addr);
+            journaled_state.touch(*addr);
         }
 
         Ok(())
@@ -1609,7 +1633,7 @@ impl CheatcodeBackend for Backend {
     }
 }
 
-impl DatabaseRef for Backend {
+impl<JournalEntryT, SpecT> DatabaseRef for Backend<JournalEntryT, SpecT> {
     type Error = DatabaseError;
 
     fn basic_ref(&self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
@@ -1645,7 +1669,7 @@ impl DatabaseRef for Backend {
     }
 }
 
-impl DatabaseCommit for Backend {
+impl<JournalEntryT, SpecT> DatabaseCommit for Backend<JournalEntryT, SpecT> {
     fn commit(&mut self, changes: Map<Address, Account>) {
         if let Some(db) = self.active_fork_db_mut() {
             db.commit(changes);
@@ -1655,7 +1679,7 @@ impl DatabaseCommit for Backend {
     }
 }
 
-impl Database for Backend {
+impl<JournalEntryT, SpecT> Database for Backend<JournalEntryT, SpecT> {
     type Error = DatabaseError;
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
         if let Some(db) = self.active_fork_db_mut() {
@@ -1692,11 +1716,16 @@ impl Database for Backend {
 
 /// Variants of a [`revm::Database`]
 #[derive(Clone, Debug)]
-pub enum BackendDatabaseSnapshot {
+pub enum BackendDatabaseSnapshot<JournalEntryT> {
     /// Simple in-memory [`revm::Database`]
     InMemory(FoundryEvmInMemoryDB),
     /// Contains the entire forking mode database
-    Forked(LocalForkId, ForkId, ForkLookupIndex, Box<Fork>),
+    Forked(
+        LocalForkId,
+        ForkId,
+        ForkLookupIndex,
+        Box<Fork<JournalEntryT>>,
+    ),
 }
 
 /// If re-executing the counter example is not guaranteed to yield the same
@@ -1720,7 +1749,7 @@ pub struct IndeterminismReasons {
 
 /// Represents a fork
 #[derive(Clone, Debug)]
-pub struct Fork {
+pub struct Fork<JournalEntryT> {
     db: ForkDB,
     journaled_state: JournalInner<JournalEntryT>,
     fork_block_number: Option<u64>,
@@ -1728,7 +1757,7 @@ pub struct Fork {
 
 // === impl Fork ===
 
-impl Fork {
+impl<JournalEntryT> Fork<JournalEntryT> {
     /// Returns true if the account is a contract
     pub fn is_contract(&self, acc: Address) -> bool {
         if let Ok(Some(acc)) = self.db.basic_ref(acc) {
@@ -1742,7 +1771,7 @@ impl Fork {
 
 /// Container type for various Backend related data
 #[derive(Clone, Debug)]
-pub struct BackendInner {
+pub struct BackendInner<JournalEntryT, SpecT> {
     /// Stores the `ForkId` of the fork the `Backend` launched with from the
     /// start.
     ///
@@ -1769,9 +1798,9 @@ pub struct BackendInner {
     pub created_forks: HashMap<ForkId, ForkLookupIndex>,
     /// Holds all created fork databases
     // Note: data is stored in an `Option` so we can remove it without reshuffling
-    pub forks: Vec<Option<Fork>>,
+    pub forks: Vec<Option<Fork<JournalEntryT>>>,
     /// Contains snapshots made at a certain point
-    pub snapshots: Snapshots<BackendSnapshot<BackendDatabaseSnapshot>>,
+    pub snapshots: Snapshots<BackendSnapshot<BackendDatabaseSnapshot<JournalEntryT>>>,
     /// Tracks whether there was a failure in a snapshot that was reverted
     ///
     /// The Test contract contains a bool variable that is set to true when an
@@ -1800,7 +1829,7 @@ pub struct BackendInner {
     /// See also [`clone_data()`]
     pub persistent_accounts: HashSet<Address>,
     /// The configured spec id
-    pub spec_id: SpecId,
+    pub spec_id: SpecT,
     /// All accounts that are allowed to execute cheatcodes
     pub cheatcode_access_accounts: HashSet<Address>,
     /// The set of executed cheatcodes that are impure. The values are the
@@ -1810,7 +1839,11 @@ pub struct BackendInner {
 
 // === impl BackendInner ===
 
-impl BackendInner {
+impl<JournalEntryT, SpecT> BackendInner<JournalEntryT, SpecT>
+where
+    JournalEntryT: JournalTr,
+    SpecT: Into<SpecId> + Copy,
+{
     pub fn ensure_fork_id(&self, id: LocalForkId) -> eyre::Result<&ForkId> {
         self.issued_local_fork_ids
             .get(&id)
@@ -1830,51 +1863,51 @@ impl BackendInner {
 
     /// Returns the underlying fork mapped to the index
     #[track_caller]
-    fn get_fork(&self, idx: ForkLookupIndex) -> &Fork {
+    fn get_fork(&self, idx: ForkLookupIndex) -> &Fork<JournalEntryT> {
         debug_assert!(idx < self.forks.len(), "fork lookup index must exist");
         self.forks[idx].as_ref().unwrap()
     }
 
     /// Returns the underlying fork mapped to the index
     #[track_caller]
-    fn get_fork_mut(&mut self, idx: ForkLookupIndex) -> &mut Fork {
+    fn get_fork_mut(&mut self, idx: ForkLookupIndex) -> &mut Fork<JournalEntryT> {
         debug_assert!(idx < self.forks.len(), "fork lookup index must exist");
         self.forks[idx].as_mut().unwrap()
     }
 
     /// Returns the underlying fork corresponding to the id
     #[track_caller]
-    fn get_fork_by_id_mut(&mut self, id: LocalForkId) -> eyre::Result<&mut Fork> {
+    fn get_fork_by_id_mut(&mut self, id: LocalForkId) -> eyre::Result<&mut Fork<JournalEntryT>> {
         let idx = self.ensure_fork_index_by_local_id(id)?;
         Ok(self.get_fork_mut(idx))
     }
 
     /// Returns the underlying fork corresponding to the id
     #[track_caller]
-    fn get_fork_by_id(&self, id: LocalForkId) -> eyre::Result<&Fork> {
+    fn get_fork_by_id(&self, id: LocalForkId) -> eyre::Result<&Fork<JournalEntryT>> {
         let idx = self.ensure_fork_index_by_local_id(id)?;
         Ok(self.get_fork(idx))
     }
 
     /// Removes the fork
-    fn take_fork(&mut self, idx: ForkLookupIndex) -> Fork {
+    fn take_fork(&mut self, idx: ForkLookupIndex) -> Fork<JournalEntryT> {
         debug_assert!(idx < self.forks.len(), "fork lookup index must exist");
         self.forks[idx].take().unwrap()
     }
 
-    fn set_fork(&mut self, idx: ForkLookupIndex, fork: Fork) {
+    fn set_fork(&mut self, idx: ForkLookupIndex, fork: Fork<JournalEntryT>) {
         self.forks[idx] = Some(fork);
     }
 
     /// Returns an iterator over Forks
-    pub fn forks_iter(&self) -> impl Iterator<Item = (LocalForkId, &Fork)> + '_ {
+    pub fn forks_iter(&self) -> impl Iterator<Item = (LocalForkId, &Fork<JournalEntryT>)> + '_ {
         self.issued_local_fork_ids
             .iter()
             .map(|(id, fork_id)| (*id, self.get_fork(self.created_forks[fork_id])))
     }
 
     /// Returns a mutable iterator over all Forks
-    pub fn forks_iter_mut(&mut self) -> impl Iterator<Item = &mut Fork> + '_ {
+    pub fn forks_iter_mut(&mut self) -> impl Iterator<Item = &mut Fork<JournalEntryT>> + '_ {
         self.forks.iter_mut().filter_map(|f| f.as_mut())
     }
 
@@ -1884,7 +1917,7 @@ impl BackendInner {
         id: LocalForkId,
         fork_id: ForkId,
         idx: ForkLookupIndex,
-        fork: Fork,
+        fork: Fork<JournalEntryT>,
     ) {
         self.created_forks.insert(fork_id.clone(), idx);
         self.issued_local_fork_ids.insert(id, fork_id);
@@ -1954,14 +1987,14 @@ impl BackendInner {
     }
 
     pub fn precompiles(&self) -> &'static Precompiles {
-        Precompiles::new(PrecompileSpecId::from_spec_id(self.spec_id))
+        Precompiles::new(PrecompileSpecId::from_spec_id(self.spec_id.into()))
     }
 
     /// Returns a new, empty, `JournaledState` with set precompiles
     pub fn new_journaled_state(&self) -> JournalInner<JournalEntryT> {
         let mut journal = {
             let mut journal_inner = JournalInner::new();
-            journal_inner.set_spec_id(self.spec_id);
+            journal_inner.set_spec_id(self.spec_id.into());
             journal_inner
         };
         journal
@@ -1971,7 +2004,10 @@ impl BackendInner {
     }
 }
 
-impl Default for BackendInner {
+impl<JournalEntryT, SpecT> Default for BackendInner<JournalEntryT, SpecT>
+where
+    SpecT: Default,
+{
     fn default() -> Self {
         Self {
             launched_with_fork: None,
@@ -1984,7 +2020,7 @@ impl Default for BackendInner {
             caller: None,
             next_fork_id: LocalForkId::default(),
             persistent_accounts: HashSet::default(),
-            spec_id: SpecId::LATEST,
+            spec_id: SpecT::default(),
             // grant the cheatcode,default test and caller address access to execute cheatcodes
             // itself
             cheatcode_access_accounts: HashSet::from([
@@ -2011,9 +2047,9 @@ pub struct LaunchedWithFork {
 }
 
 /// This updates the currently used env with the fork's environment
-pub(crate) fn update_current_env_with_fork_env(
-    current: &mut EvmEnv<BlockT, TxT, CfgT>,
-    fork: EvmEnv<BlockT, TxT, CfgT>,
+pub(crate) fn update_current_env_with_fork_env<BlockT, TxT, SpecT>(
+    current: &mut EvmEnv<BlockT, TxT, SpecT>,
+    fork: EvmEnv<BlockT, TxT, SpecT>,
 ) {
     current.block = fork.block;
     current.cfg = fork.cfg;
@@ -2118,7 +2154,7 @@ fn is_contract_in_state<JournalEntryT: JournalEntryTr>(
 }
 
 /// Updates the env's block with the block's data
-fn update_env_block<BlockT, TxT, CfgT>(env: &mut EvmEnv<BlockT, TxT, CfgT>, block: &AnyRpcBlock) {
+fn update_env_block<BlockT, TxT, SpecT>(env: &mut EvmEnv<BlockT, TxT, SpecT>, block: &AnyRpcBlock) {
     todo!()
     // env.block.timestamp = block.header.timestamp;
     // env.block.beneficiary = block.header.beneficiary;
@@ -2139,13 +2175,13 @@ fn commit_transaction<
     InspectorT,
     BlockT,
     TxT,
-    CfgT,
+    SpecT,
     JournalEntryT,
     InstructionProviderT,
     PrecompileT,
 >(
     tx: &RpcTransaction<AnyTxEnvelope>,
-    mut env: EvmEnv<BlockT, TxT, CfgT>,
+    mut env: EvmEnv<BlockT, TxT, SpecT>,
     journaled_state: &mut JournalInner<JournalEntryT>,
     fork: &mut Fork,
     fork_id: &ForkId,
