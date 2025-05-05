@@ -47,7 +47,7 @@ pub fn apply_chain_and_block_specific_env_changes<N: Network>(
     //             // after merge difficulty is supplanted with prevrandao
     // EIP-4399             if block_number >= 15_537_351u64 {
     //                 env.evm_env.block_env.difficulty =
-    //                     
+    //
     // env.evm_env.block_env.prevrandao.unwrap_or_default().into();
     //             }
     //

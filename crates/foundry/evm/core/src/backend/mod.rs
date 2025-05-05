@@ -116,9 +116,9 @@ pub trait CheatcodeBackend<InspectorT, BlockT, TxT, SpecT, InstructionProviderT,
     /// **N.B.** While this reverts the state of the evm to the snapshot, it
     /// keeps new logs made since the snapshots was created. This way we can
     /// show logs that were emitted between snapshot and its revert.
-    /// This will also revert any changes in the `EvmEnv<BlockT, TxT, CfgEnv<SpecT>>` and
-    /// replace it with the captured `EvmEnv<BlockT, TxT, CfgEnv<SpecT>>` of
-    /// `Self::snapshot`.
+    /// This will also revert any changes in the `EvmEnv<BlockT, TxT,
+    /// CfgEnv<SpecT>>` and replace it with the captured `EvmEnv<BlockT,
+    /// TxT, CfgEnv<SpecT>>` of `Self::snapshot`.
     ///
     /// Depending on [RevertSnapshotAction] it will keep the snapshot alive or
     /// delete it.
@@ -415,8 +415,8 @@ pub trait CheatcodeBackend<InspectorT, BlockT, TxT, SpecT, InstructionProviderT,
 /// be used by the `db`. However, their state can be hot-swapped by swapping the
 /// read half of `db` from one fork to another.
 /// When swapping forks (`Backend::select_fork()`) we also update the current
-/// `EvmEnv<BlockT, TxT, CfgEnv<SpecT>>` of the `EVM` accordingly, so that all `block.*`
-/// config values match
+/// `EvmEnv<BlockT, TxT, CfgEnv<SpecT>>` of the `EVM` accordingly, so that all
+/// `block.*` config values match
 ///
 /// When another for is selected [`CheatcodeBackend::select_fork()`] the entire
 /// storage, including `JournaledState` is swapped, but the storage of the
@@ -929,7 +929,12 @@ where
         inspector: I,
     ) -> eyre::Result<ResultAndState> {
         self.initialize(env);
-        let mut evm = crate::utils::new_evm_with_inspector(self, env.clone(), inspector, todo!("chain context"));
+        let mut evm = crate::utils::new_evm_with_inspector(
+            self,
+            env.clone(),
+            inspector,
+            todo!("chain context"),
+        );
 
         let res = evm
             .inspect_replay()
