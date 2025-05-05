@@ -230,7 +230,8 @@ pub trait CheatcodeBackend<InspectorT, BlockT, TxT, SpecT, InstructionProviderT,
 
     /// Fetches the given transaction for the fork and executes it, committing
     /// the state in the DB
-    fn transact<I: InspectorExt<Backend<BlockT, TxT, SpecT>>>(
+    // TODO chain context generic instead of void
+    fn transact<I: InspectorExt<BlockT, TxT, SpecT, Backend<BlockT, TxT, SpecT>, ()>>(
         &mut self,
         id: Option<LocalForkId>,
         transaction: B256,
@@ -928,7 +929,8 @@ where
     ///
     /// Note: in case there are any cheatcodes executed that modify the
     /// environment, this will update the given `env` with the new values.
-    pub fn inspect<'a, I: InspectorExt<&'a mut Self>>(
+    // TODO chain context generic instead of void
+    pub fn inspect<'a, I: InspectorExt<BlockT, TxT, SpecT, &'a mut Self, ()>>(
         &'a mut self,
         env: &mut EvmEnv<BlockT, TxT, SpecT>,
         inspector: I,
@@ -1427,7 +1429,8 @@ where
         Ok(())
     }
 
-    fn transact<I: InspectorExt<Backend<BlockT, TxT, SpecT>>>(
+    // TODO chain context generic instead of void
+    fn transact<I: InspectorExt<BlockT, TxT, SpecT, Backend<BlockT, TxT, SpecT>, ()>>(
         &mut self,
         maybe_id: Option<LocalForkId>,
         transaction: B256,

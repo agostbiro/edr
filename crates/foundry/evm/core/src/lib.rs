@@ -25,7 +25,6 @@ pub mod backend;
 pub mod constants;
 pub mod contracts;
 pub mod decode;
-pub mod evm;
 pub mod evm_env;
 pub mod fork;
 pub mod opcodes;
