@@ -48,10 +48,6 @@ pub struct EvmOpts {
     /// Enables the FFI cheatcode.
     pub ffi: bool,
 
-    /// Use the create 2 factory in all cases including tests and
-    /// non-broadcasting scripts.
-    pub always_use_create_2_factory: bool,
-
     /// The memory limit per EVM execution in bytes.
     /// If this limit is exceeded, a `MemoryLimitOOG` result is thrown.
     pub memory_limit: u64,

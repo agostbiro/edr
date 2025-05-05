@@ -1411,26 +1411,6 @@ impl<DB: CheatcodeBackend> Inspector<DB> for Cheatcodes {
     }
 }
 
-impl<DB: CheatcodeBackend> InspectorExt<DB> for Cheatcodes {
-    fn should_use_create2_factory(
-        &mut self,
-        ecx: &mut EvmContext<DB>,
-        inputs: &mut CreateInputs,
-    ) -> bool {
-        if let CreateScheme::Create2 { .. } = inputs.scheme {
-            let target_depth = if let Some(prank) = &self.prank {
-                prank.depth
-            } else {
-                1
-            };
-
-            ecx.journaled_state.depth() == target_depth && self.config.always_use_create_2_factory
-        } else {
-            false
-        }
-    }
-}
-
 /// Helper that expands memory, stores a revert string pertaining to a
 /// disallowed memory write, and sets the return range to the revert string's
 /// location in memory.
