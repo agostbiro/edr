@@ -94,8 +94,12 @@ const SYSTEM_TRANSACTION_TYPE: u8 = 126;
 /// An extension trait that allows us to easily extend the `revm::Inspector`
 /// capabilities for cheatcodes
 #[auto_impl::auto_impl(&mut)]
-pub trait CheatcodeBackend<InspectorT, BlockT, TxT, SpecT, InstructionProviderT, PrecompileT>:
+pub trait CheatcodeBackend<BlockT, TxT, SpecT, InstructionProviderT, PrecompileT, ChainContextT>:
     Database
+where
+    BlockT: Block,
+    TxT: Transaction,
+    SpecT: Into<SpecId> + Copy,
 {
     /// Creates a new snapshot at the current point of execution.
     ///
@@ -106,7 +110,7 @@ pub trait CheatcodeBackend<InspectorT, BlockT, TxT, SpecT, InstructionProviderT,
     fn snapshot(
         &mut self,
         journaled_state: &JournalInner<JournalEntry>,
-        env: &EvmEnv<BlockT, TxT, CfgEnv<SpecT>>,
+        env: &EvmEnv<BlockT, TxT, SpecT>,
     ) -> U256;
 
     /// Reverts the snapshot if it exists
@@ -127,7 +131,7 @@ pub trait CheatcodeBackend<InspectorT, BlockT, TxT, SpecT, InstructionProviderT,
         &mut self,
         id: U256,
         journaled_state: &JournalInner<JournalEntry>,
-        env: &mut EvmEnv<BlockT, TxT, CfgEnv<SpecT>>,
+        env: &mut EvmEnv<BlockT, TxT, SpecT>,
         action: RevertSnapshotAction,
     ) -> Option<JournalInner<JournalEntry>>;
 
@@ -146,7 +150,7 @@ pub trait CheatcodeBackend<InspectorT, BlockT, TxT, SpecT, InstructionProviderT,
     fn create_select_fork(
         &mut self,
         fork: CreateFork,
-        env: &mut EvmEnv<BlockT, TxT, CfgEnv<SpecT>>,
+        env: &mut EvmEnv<BlockT, TxT, SpecT>,
         journaled_state: &mut JournalInner<JournalEntry>,
     ) -> eyre::Result<LocalForkId> {
         let id = self.create_fork(fork)?;
@@ -160,11 +164,12 @@ pub trait CheatcodeBackend<InspectorT, BlockT, TxT, SpecT, InstructionProviderT,
     fn create_select_fork_at_transaction(
         &mut self,
         fork: CreateFork,
-        env: &mut EvmEnv<BlockT, TxT, CfgEnv<SpecT>>,
+        env: &mut EvmEnv<BlockT, TxT, SpecT>,
         journaled_state: &mut JournalInner<JournalEntry>,
         transaction: B256,
+        chain_context: ChainContextT,
     ) -> eyre::Result<LocalForkId> {
-        let id = self.create_fork_at_transaction(fork, transaction)?;
+        let id = self.create_fork_at_transaction(fork, transaction, chain_context)?;
         self.select_fork(id, env, journaled_state)?;
         Ok(id)
     }
@@ -177,11 +182,12 @@ pub trait CheatcodeBackend<InspectorT, BlockT, TxT, SpecT, InstructionProviderT,
         &mut self,
         fork: CreateFork,
         transaction: B256,
+        chain_context: ChainContextT,
     ) -> eyre::Result<LocalForkId>;
 
     /// Selects the fork's state
     ///
-    /// This will also modify the current `EvmEnv<BlockT, TxT, CfgEnv<SpecT>>`.
+    /// This will also modify the current `EvmEnv<BlockT, TxT, SpecT>`.
     ///
     /// **Note**: this does not change the local state, but swaps the remote
     /// state
@@ -192,7 +198,7 @@ pub trait CheatcodeBackend<InspectorT, BlockT, TxT, SpecT, InstructionProviderT,
     fn select_fork(
         &mut self,
         id: LocalForkId,
-        env: &mut EvmEnv<BlockT, TxT, CfgEnv<SpecT>>,
+        env: &mut EvmEnv<BlockT, TxT, SpecT>,
         journaled_state: &mut JournalInner<JournalEntry>,
     ) -> eyre::Result<()>;
 
@@ -207,7 +213,7 @@ pub trait CheatcodeBackend<InspectorT, BlockT, TxT, SpecT, InstructionProviderT,
         &mut self,
         id: Option<LocalForkId>,
         block_number: u64,
-        env: &mut EvmEnv<BlockT, TxT, CfgEnv<SpecT>>,
+        env: &mut EvmEnv<BlockT, TxT, SpecT>,
         journaled_state: &mut JournalInner<JournalEntry>,
     ) -> eyre::Result<()>;
 
@@ -224,22 +230,24 @@ pub trait CheatcodeBackend<InspectorT, BlockT, TxT, SpecT, InstructionProviderT,
         &mut self,
         id: Option<LocalForkId>,
         transaction: B256,
-        env: &mut EvmEnv<BlockT, TxT, CfgEnv<SpecT>>,
+        env: &mut EvmEnv<BlockT, TxT, SpecT>,
         journaled_state: &mut JournalInner<JournalEntry>,
+        chain_context: ChainContextT,
     ) -> eyre::Result<()>;
 
     /// Fetches the given transaction for the fork and executes it, committing
     /// the state in the DB
-    // TODO chain context generic instead of void
-    fn transact<I: InspectorExt<BlockT, TxT, SpecT, Backend<BlockT, TxT, SpecT>, ()>>(
+    fn transact<InspectorT>(
         &mut self,
         id: Option<LocalForkId>,
         transaction: B256,
-        env: &mut EvmEnv<BlockT, TxT, CfgEnv<SpecT>>,
+        env: &mut EvmEnv<BlockT, TxT, SpecT>,
         journaled_state: &mut JournalInner<JournalEntry>,
-        inspector: &mut I,
+        inspector: &mut InspectorT,
+        chain_context: ChainContextT,
     ) -> eyre::Result<()>
     where
+        InspectorT: InspectorExt<BlockT, TxT, SpecT, Backend<BlockT, TxT, SpecT>, ChainContextT>,
         Self: Sized;
 
     /// Returns the `ForkId` that's currently used in the database, if fork mode
@@ -417,7 +425,7 @@ pub trait CheatcodeBackend<InspectorT, BlockT, TxT, SpecT, InstructionProviderT,
 /// be used by the `db`. However, their state can be hot-swapped by swapping the
 /// read half of `db` from one fork to another.
 /// When swapping forks (`Backend::select_fork()`) we also update the current
-/// `EvmEnv<BlockT, TxT, CfgEnv<SpecT>>` of the `EVM` accordingly, so that all
+/// `EvmEnv<BlockT, TxT, SpecT>` of the `EVM` accordingly, so that all
 /// `block.*` config values match
 ///
 /// When another for is selected [`CheatcodeBackend::select_fork()`] the entire
@@ -929,29 +937,24 @@ where
     ///
     /// Note: in case there are any cheatcodes executed that modify the
     /// environment, this will update the given `env` with the new values.
-    // TODO chain context generic instead of void
-    pub fn inspect<'a, I: InspectorExt<BlockT, TxT, SpecT, &'a mut Self, ()>>(
+    pub fn inspect<'a, InspectorT, ChainContextT>(
         &'a mut self,
         env: &mut EvmEnv<BlockT, TxT, SpecT>,
-        inspector: I,
-    ) -> eyre::Result<ResultAndState> {
+        inspector: InspectorT,
+        chain_context: ChainContextT,
+    ) -> eyre::Result<ResultAndState>
+    where
+        InspectorT: InspectorExt<BlockT, TxT, SpecT, &'a mut Self, ChainContextT>,
+    {
         self.initialize(env);
-        let mut evm = crate::utils::new_evm_with_inspector(
-            self,
-            env.clone(),
-            inspector,
-            todo!("chain context"),
-        );
+        let mut evm =
+            crate::utils::new_evm_with_inspector(self, env.clone(), inspector, chain_context);
 
         let res = evm
             .inspect_replay()
             .wrap_err("backend: failed while inspecting")?;
 
-        let Context { block, tx, cfg, .. } = evm.data.ctx;
-
-        *env.block = block;
-        *env.tx = tx;
-        *env.cfg = cfg;
+        *env = EvmEnv::from(evm.data.ctx);
 
         Ok(res)
     }
@@ -1048,13 +1051,17 @@ where
     ///
     /// Returns the _unmined_ transaction that corresponds to the given
     /// `tx_hash`
-    pub fn replay_until(
+    pub fn replay_until<ChainContextT>(
         &mut self,
         id: LocalForkId,
         env: EvmEnv<BlockT, TxT, SpecT>,
         tx_hash: B256,
         journaled_state: &mut JournalInner<JournalEntry>,
-    ) -> eyre::Result<Option<RpcTransaction<AnyTxEnvelope>>> {
+        chain_context: ChainContextT,
+    ) -> eyre::Result<Option<RpcTransaction<AnyTxEnvelope>>>
+    where
+        ChainContextT: Clone,
+    {
         trace!(?id, ?tx_hash, "replay until transaction");
 
         let persistent_accounts = self.inner.persistent_accounts.clone();
@@ -1088,6 +1095,7 @@ where
                 &fork_id,
                 &persistent_accounts,
                 &mut NoOpInspector,
+                chain_context.clone(),
             )?;
         }
 
@@ -1095,13 +1103,13 @@ where
     }
 }
 
-impl<InspectorT, BlockT, TxT, SpecT, InstructionProviderT, PrecompileT>
-    CheatcodeBackend<InspectorT, BlockT, TxT, SpecT, InstructionProviderT, PrecompileT>
+impl<BlockT, TxT, SpecT, InstructionProviderT, PrecompileT, ChainContextT>
+    CheatcodeBackend<BlockT, TxT, SpecT, InstructionProviderT, PrecompileT, ChainContextT>
     for Backend<BlockT, TxT, SpecT>
 where
     BlockT: Block + Clone,
     TxT: Transaction + TransactionEnvMut + Clone,
-    SpecT: Into<SpecId> + Clone,
+    SpecT: Into<SpecId> + Copy,
     InstructionProviderT: InstructionProvider<
             Context = Context<BlockT, TxT, CfgEnv<SpecT>, Backend<BlockT, TxT, SpecT>>,
             InterpreterTypes = EthInterpreter,
@@ -1110,6 +1118,7 @@ where
             Context<BlockT, TxT, CfgEnv<SpecT>, Backend<BlockT, TxT, SpecT>>,
             Output = InterpreterResult,
         > + Default,
+    ChainContextT: Clone,
 {
     fn snapshot(
         &mut self,
@@ -1216,6 +1225,7 @@ where
         &mut self,
         fork: CreateFork,
         transaction: B256,
+        chain_context: ChainContextT,
     ) -> eyre::Result<LocalForkId> {
         trace!(?transaction, "create fork at transaction");
         let id = self.create_fork(fork)?;
@@ -1232,6 +1242,7 @@ where
             transaction,
             &mut env,
             &mut self.inner.new_journaled_state(),
+            chain_context,
         )?;
         Ok(id)
     }
@@ -1409,6 +1420,7 @@ where
         transaction: B256,
         env: &mut EvmEnv<BlockT, TxT, SpecT>,
         journaled_state: &mut JournalInner<JournalEntry>,
+        chain_context: ChainContextT,
     ) -> eyre::Result<()> {
         trace!(?id, ?transaction, "roll fork to transaction");
         let id = self.ensure_fork(id)?;
@@ -1424,20 +1436,23 @@ where
         // replay all transactions that came before
         let env = env.clone();
 
-        self.replay_until(id, env, transaction, journaled_state)?;
+        self.replay_until(id, env, transaction, journaled_state, chain_context)?;
 
         Ok(())
     }
 
-    // TODO chain context generic instead of void
-    fn transact<I: InspectorExt<BlockT, TxT, SpecT, Backend<BlockT, TxT, SpecT>, ()>>(
+    fn transact<InspectorT>(
         &mut self,
         maybe_id: Option<LocalForkId>,
         transaction: B256,
         env: &mut EvmEnv<BlockT, TxT, SpecT>,
         journaled_state: &mut JournalInner<JournalEntry>,
-        inspector: &mut I,
-    ) -> eyre::Result<()> {
+        inspector: &mut InspectorT,
+        chain_context: ChainContextT,
+    ) -> eyre::Result<()>
+    where
+        InspectorT: InspectorExt<BlockT, TxT, SpecT, Backend<BlockT, TxT, SpecT>, ChainContextT>,
+    {
         trace!(?maybe_id, ?transaction, "execute transaction");
         let persistent_accounts = self.inner.persistent_accounts.clone();
         let id = self.ensure_fork(maybe_id)?;
@@ -1465,6 +1480,7 @@ where
             &fork_id,
             &persistent_accounts,
             inspector,
+            chain_context,
         )
     }
 
@@ -2168,7 +2184,15 @@ fn update_env_block<BlockT, TxT, SpecT>(env: &mut EvmEnv<BlockT, TxT, SpecT>, bl
 
 /// Executes the given transaction and commits state changes to the database
 /// _and_ the journaled state, with an optional inspector
-fn commit_transaction<InspectorT, BlockT, TxT, SpecT, InstructionProviderT, PrecompileT>(
+fn commit_transaction<
+    BlockT,
+    TxT,
+    SpecT,
+    InstructionProviderT,
+    PrecompileT,
+    InspectorT,
+    ChainContextT,
+>(
     tx: &RpcTransaction<AnyTxEnvelope>,
     mut env: EvmEnv<BlockT, TxT, SpecT>,
     journaled_state: &mut JournalInner<JournalEntry>,
@@ -2176,6 +2200,7 @@ fn commit_transaction<InspectorT, BlockT, TxT, SpecT, InstructionProviderT, Prec
     fork_id: &ForkId,
     persistent_accounts: &HashSet<Address>,
     inspector: InspectorT,
+    chain_context: ChainContextT,
 ) -> eyre::Result<()> {
     configure_tx_env(&mut env, tx);
 
@@ -2184,8 +2209,8 @@ fn commit_transaction<InspectorT, BlockT, TxT, SpecT, InstructionProviderT, Prec
         let fork = fork.clone();
         let journaled_state = journaled_state.clone();
         let db = Backend::new_with_fork(fork_id, fork, journaled_state);
-        crate::utils::new_evm_with_inspector(db, &env, inspector)
-            .transact()
+        crate::utils::new_evm_with_inspector(db, env, inspector, chain_context)
+            .inspect_replay()
             .wrap_err("backend: failed committing transaction")?
     };
     trace!(elapsed = ?now.elapsed(), "transacted transaction");
