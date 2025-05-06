@@ -51,7 +51,12 @@ use crate::{
 /// significant overhead for large fuzz sets even if the Database is not big
 /// after setup.
 #[derive(Clone, Debug)]
-pub struct CowBackend<'a, BlockT, TxT, SpecT> {
+pub struct CowBackend<'a, BlockT, TxT, SpecT>
+where
+    BlockT: Clone,
+    TxT: Clone,
+    SpecT: Copy,
+{
     /// The underlying `Backend`.
     ///
     /// No calls on the `CowBackend` will ever persistently modify the
@@ -67,7 +72,7 @@ impl<'a, BlockT, TxT, SpecT> CowBackend<'a, BlockT, TxT, SpecT>
 where
     BlockT: Block + Clone,
     TxT: Transaction + Clone,
-    SpecT: Default,
+    SpecT: Copy + Default + Into<SpecId>,
 {
     /// Creates a new `CowBackend` with the given `Backend`.
     pub fn new(backend: &'a Backend<BlockT, TxT, SpecT>) -> Self {
@@ -128,11 +133,14 @@ where
     /// initialized.
     fn backend_mut(
         &mut self,
-        env: &EvmEnv<BlockT, TxT, CfgEnv<SpecT>>,
+        mut env: EvmEnv<BlockT, TxT, SpecT>,
     ) -> &mut Backend<BlockT, TxT, SpecT> {
         if !self.is_initialized {
             let backend = self.backend.to_mut();
-            backend.initialize(env);
+
+            env.cfg.spec = self.spec_id;
+            backend.initialize(&env);
+
             self.is_initialized = true;
             return backend;
         }
@@ -148,8 +156,8 @@ where
     }
 }
 
-impl<'a, BlockT, TxT, SpecT, InspectorT, InstructionProviderT, PrecompileT>
-    CheatcodeBackend<InspectorT, BlockT, TxT, SpecT, InstructionProviderT, PrecompileT>
+impl<'a, BlockT, TxT, SpecT, InstructionProviderT, PrecompileT, ChainContextT>
+    CheatcodeBackend<BlockT, TxT, SpecT, InstructionProviderT, PrecompileT, ChainContextT>
     for CowBackend<'a, BlockT, TxT, SpecT>
 where
     BlockT: Block + Clone,
@@ -159,19 +167,19 @@ where
     fn snapshot(
         &mut self,
         journaled_state: &JournalInner<JournalEntry>,
-        env: &EvmEnv<BlockT, TxT, CfgEnv<SpecT>>,
+        env: &EvmEnv<BlockT, TxT, SpecT>,
     ) -> U256 {
-        self.backend_mut(env).snapshot(journaled_state, env)
+        self.backend_mut(env.clone()).snapshot(journaled_state, env)
     }
 
     fn revert(
         &mut self,
         id: U256,
         journaled_state: &JournalInner<JournalEntry>,
-        current: &mut EvmEnv<BlockT, TxT, CfgEnv<SpecT>>,
+        current: &mut EvmEnv<BlockT, TxT, SpecT>,
         action: RevertSnapshotAction,
     ) -> Option<JournalInner<JournalEntry>> {
-        self.backend_mut(current)
+        self.backend_mut(current.clone())
             .revert(id, journaled_state, current, action)
     }
 
@@ -197,29 +205,31 @@ where
         &mut self,
         fork: CreateFork,
         transaction: B256,
+        chain_context: ChainContextT,
     ) -> eyre::Result<LocalForkId> {
         self.backend
             .to_mut()
-            .create_fork_at_transaction(fork, transaction)
+            .create_fork_at_transaction(fork, transaction, chain_context)
     }
 
     fn select_fork(
         &mut self,
         id: LocalForkId,
-        env: &mut EvmEnv<BlockT, TxT, CfgEnv<SpecT>>,
+        env: &mut EvmEnv<BlockT, TxT, SpecT>,
         journaled_state: &mut JournalInner<JournalEntry>,
     ) -> eyre::Result<()> {
-        self.backend_mut(env).select_fork(id, env, journaled_state)
+        self.backend_mut(env.clone())
+            .select_fork(id, env, journaled_state)
     }
 
     fn roll_fork(
         &mut self,
         id: Option<LocalForkId>,
         block_number: u64,
-        env: &mut EvmEnv<BlockT, TxT, CfgEnv<SpecT>>,
+        env: &mut EvmEnv<BlockT, TxT, SpecT>,
         journaled_state: &mut JournalInner<JournalEntry>,
     ) -> eyre::Result<()> {
-        self.backend_mut(env)
+        self.backend_mut(env.clone())
             .roll_fork(id, block_number, env, journaled_state)
     }
 
@@ -227,23 +237,39 @@ where
         &mut self,
         id: Option<LocalForkId>,
         transaction: B256,
-        env: &mut EvmEnv<BlockT, TxT, CfgEnv<SpecT>>,
+        env: &mut EvmEnv<BlockT, TxT, SpecT>,
         journaled_state: &mut JournalInner<JournalEntry>,
+        chain_context: ChainContextT,
     ) -> eyre::Result<()> {
-        self.backend_mut(env)
-            .roll_fork_to_transaction(id, transaction, env, journaled_state)
+        self.backend_mut(env.clone()).roll_fork_to_transaction(
+            id,
+            transaction,
+            env,
+            journaled_state,
+            chain_context,
+        )
     }
 
-    fn transact<I: InspectorExt<BlockT, TxT, SpecT, Backend<BlockT, TxT, SpecT>, ()>>(
+    fn transact<InspectorT>(
         &mut self,
         id: Option<LocalForkId>,
         transaction: B256,
-        env: &mut EvmEnv<BlockT, TxT, CfgEnv<SpecT>>,
+        env: &mut EvmEnv<BlockT, TxT, SpecT>,
         journaled_state: &mut JournalInner<JournalEntry>,
-        inspector: &mut I,
-    ) -> eyre::Result<()> {
-        self.backend_mut(env)
-            .transact(id, transaction, env, journaled_state, inspector)
+        inspector: &mut InspectorT,
+        chain_context: ChainContextT,
+    ) -> eyre::Result<()>
+    where
+        InspectorT: InspectorExt<BlockT, TxT, SpecT, Backend<BlockT, TxT, SpecT>, ChainContextT>,
+    {
+        self.backend_mut(env).transact(
+            id,
+            transaction,
+            env,
+            journaled_state,
+            inspector,
+            chain_context,
+        )
     }
 
     fn active_fork_id(&self) -> Option<LocalForkId> {
