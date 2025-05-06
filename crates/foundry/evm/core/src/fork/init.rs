@@ -4,9 +4,12 @@ use alloy_primitives::{Address, U256};
 use alloy_provider::{Network, Provider};
 use alloy_rpc_types::{BlockNumberOrTag, BlockTransactionsKind};
 use eyre::WrapErr;
-use revm::primitives::{BlockEnv, CfgEnv, Env, TxEnv};
+use revm::{
+    context::{BlockEnv, CfgEnv, TxEnv},
+    primitives::hardfork::SpecId,
+};
 
-use crate::utils::apply_chain_and_block_specific_env_changes;
+use crate::{evm_env::EvmEnv, utils::apply_chain_and_block_specific_env_changes};
 
 /// Logged when an error is indicative that the user is trying to fork from a
 /// non-archive node.
@@ -24,7 +27,10 @@ pub async fn environment<N: Network, P: Provider<N>>(
     pin_block: Option<u64>,
     origin: Address,
     disable_block_gas_limit: bool,
-) -> eyre::Result<(Env, <N as Network>::BlockResponse)> {
+) -> eyre::Result<(
+    EvmEnv<BlockEnv, TxEnv, SpecId>,
+    <N as Network>::BlockResponse,
+)> {
     let block_number = if let Some(pin_block) = pin_block {
         pin_block
     } else {
@@ -36,10 +42,7 @@ pub async fn environment<N: Network, P: Provider<N>>(
     let (fork_gas_price, rpc_chain_id, block) = tokio::try_join!(
         provider.get_gas_price(),
         provider.get_chain_id(),
-        provider.get_block_by_number(
-            BlockNumberOrTag::Number(block_number),
-            BlockTransactionsKind::Hashes
-        )
+        provider.get_block_by_number(BlockNumberOrTag::Number(block_number),)
     )?;
     let block = if let Some(block) = block {
         block
@@ -60,7 +63,7 @@ pub async fn environment<N: Network, P: Provider<N>>(
         eyre::bail!("Failed to get block for block number: {}", block_number)
     };
 
-    let mut cfg = CfgEnv::default();
+    let mut cfg = CfgEnv::<SpecId>::default();
     cfg.chain_id = override_chain_id.unwrap_or(rpc_chain_id);
     cfg.memory_limit = memory_limit;
     cfg.limit_contract_code_size = Some(usize::MAX);
@@ -70,21 +73,21 @@ pub async fn environment<N: Network, P: Provider<N>>(
     cfg.disable_eip3607 = true;
     cfg.disable_block_gas_limit = disable_block_gas_limit;
 
-    let mut env = Env {
+    let mut env = EvmEnv {
         cfg,
         block: BlockEnv {
-            number: U256::from(block.header().number()),
-            timestamp: U256::from(block.header().timestamp()),
-            coinbase: block.header().beneficiary(),
+            number: block.header().number(),
+            timestamp: block.header().timestamp(),
+            beneficiary: block.header().beneficiary(),
             difficulty: block.header().difficulty(),
             prevrandao: block.header().mix_hash(),
-            basefee: U256::from(block.header().base_fee_per_gas().unwrap_or_default()),
-            gas_limit: U256::from(block.header().gas_limit()),
+            basefee: block.header().base_fee_per_gas().unwrap_or_default(),
+            gas_limit: block.header().gas_limit(),
             ..Default::default()
         },
         tx: TxEnv {
             caller: origin,
-            gas_price: U256::from(gas_price.unwrap_or(fork_gas_price)),
+            gas_price: gas_price.unwrap_or(fork_gas_price),
             chain_id: Some(override_chain_id.unwrap_or(rpc_chain_id)),
             gas_limit: block.header().gas_limit(),
             ..Default::default()
