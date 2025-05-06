@@ -3,11 +3,15 @@ use alloy_network::AnyRpcBlock;
 use alloy_primitives::{Address, B256, U256};
 use alloy_provider::Provider;
 use eyre::WrapErr;
-use revm::primitives::{BlockEnv, CfgEnv, TxEnv};
+use revm::{
+    context::{BlockEnv, CfgEnv, TxEnv},
+    primitives::hardfork::SpecId,
+};
 use serde::{Deserialize, Deserializer, Serialize};
 use url::Url;
 
 use super::fork::{environment, provider::ProviderBuilder};
+use crate::evm_env::EvmEnv;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct EvmOpts {
@@ -16,7 +20,7 @@ pub struct EvmOpts {
     pub env: Env,
 
     /// The hardfork to use for the EVM.
-    pub spec: revm::primitives::SpecId,
+    pub spec: SpecId,
 
     /// Fetch state over a remote instead of starting from empty state.
     #[serde(rename = "eth_rpc_url")]
@@ -60,11 +64,11 @@ pub struct EvmOpts {
 }
 
 impl EvmOpts {
-    /// Configures a new `revm::Env`
+    /// Configures a new `EvmEnv`
     ///
     /// If a `fork_url` is set, it gets configured with settings fetched from
     /// the endpoint (chain id, )
-    pub async fn evm_env(&self) -> eyre::Result<revm::primitives::Env> {
+    pub async fn evm_env(&self) -> eyre::Result<EvmEnv<BlockEnv, TxEnv, SpecId>> {
         if let Some(ref fork_url) = self.fork_url {
             Ok(self.fork_evm_env(fork_url).await?.0)
         } else {
@@ -72,13 +76,13 @@ impl EvmOpts {
         }
     }
 
-    /// Returns the `revm::Env` that is configured with settings retrieved from
+    /// Returns the `EvmEnv` that is configured with settings retrieved from
     /// the endpoint. And the block that was used to configure the
     /// environment.
     pub async fn fork_evm_env(
         &self,
         fork_url: impl AsRef<str>,
-    ) -> eyre::Result<(revm::primitives::Env, AnyRpcBlock)> {
+    ) -> eyre::Result<(EvmEnv<BlockEnv, TxEnv, SpecId>, AnyRpcBlock)> {
         let fork_url = fork_url.as_ref();
         let provider = ProviderBuilder::new(fork_url)
             .compute_units_per_second(self.get_compute_units_per_second())
@@ -108,9 +112,9 @@ impl EvmOpts {
         })
     }
 
-    /// Returns the `revm::Env` configured with only local settings
-    pub fn local_evm_env(&self) -> revm::primitives::Env {
-        let mut cfg = CfgEnv::default();
+    /// Returns the `EvmEnv` configured with only local settings
+    pub fn local_evm_env(&self) -> EvmEnv<BlockEnv, TxEnv, SpecId> {
+        let mut cfg = CfgEnv::<SpecId>::default();
         cfg.chain_id = self.env.chain_id.unwrap_or(edr_defaults::DEV_CHAIN_ID);
         cfg.limit_contract_code_size = self.env.code_size_limit.or(Some(usize::MAX));
         cfg.memory_limit = self.memory_limit;
@@ -120,20 +124,20 @@ impl EvmOpts {
         cfg.disable_eip3607 = true;
         cfg.disable_block_gas_limit = self.disable_block_gas_limit;
 
-        revm::primitives::Env {
+        EvmEnv {
             block: BlockEnv {
-                number: U256::from(self.env.block_number),
-                coinbase: self.env.block_coinbase,
-                timestamp: U256::from(self.env.block_timestamp),
+                number: self.env.block_number,
+                beneficiary: self.env.block_coinbase,
+                timestamp: self.env.block_timestamp,
                 difficulty: U256::from(self.env.block_difficulty),
                 prevrandao: Some(self.env.block_prevrandao),
-                basefee: U256::from(self.env.block_base_fee_per_gas),
+                basefee: self.env.block_base_fee_per_gas,
                 gas_limit: self.gas_limit(),
                 ..Default::default()
             },
             cfg,
             tx: TxEnv {
-                gas_price: U256::from(self.env.gas_price.unwrap_or_default()),
+                gas_price: self.env.gas_price.unwrap_or_default().into(),
                 gas_limit: self.gas_limit().to(),
                 caller: self.sender,
                 ..Default::default()
@@ -142,8 +146,8 @@ impl EvmOpts {
     }
 
     /// Returns the gas limit to use
-    pub fn gas_limit(&self) -> U256 {
-        U256::from(self.env.block_gas_limit.unwrap_or(self.env.gas_limit))
+    pub fn gas_limit(&self) -> u64 {
+        self.env.block_gas_limit.unwrap_or(self.env.gas_limit)
     }
 
     /// Returns the configured chain id, which will be
