@@ -16,15 +16,14 @@ pub use foundry_fork_db::{cache::BlockchainDbMeta, BlockchainDb, SharedBackend};
 use revm::{
     bytecode::Bytecode,
     context::{Cfg, JournalInner},
-    context_interface::{
-        result::ResultAndState, Block, JournalTr, Transaction,
-    },
+    context_interface::{result::ResultAndState, Block, JournalTr, Transaction},
     database::{CacheDB, DatabaseRef},
     handler::PrecompileProvider,
     inspector::NoOpInspector,
     precompile::{PrecompileSpecId, Precompiles},
     primitives::{HashMap as Map, Log, KECCAK_EMPTY},
-    state::{Account, AccountInfo, EvmState, EvmStorageSlot}, Database, DatabaseCommit, InspectEvm, JournalEntry,
+    state::{Account, AccountInfo, EvmState, EvmStorageSlot},
+    Database, DatabaseCommit, InspectEvm, JournalEntry,
 };
 use serde::{Deserialize, Serialize};
 
@@ -397,7 +396,12 @@ pub trait CheatcodeBackend<
     fn record_cheatcode_purity(&mut self, cheatcode_name: &'static str, is_pure: bool);
 }
 
-// struct _ObjectSafe(dyn CheatcodeBackend);
+struct _ObjectSafe<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+>(dyn CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT, Error = DatabaseError>);
 
 /// Provides the underlying `revm::Database` implementation.
 ///
