@@ -2,7 +2,13 @@ use std::collections::HashMap;
 
 use alloy_primitives::{keccak256, Address, B256, U256};
 use alloy_sol_types::SolValue;
-use revm::interpreter::{opcode, Interpreter};
+use revm::{
+    bytecode::opcode,
+    interpreter::{
+        interpreter_types::{Jumps, MemoryTr},
+        Interpreter,
+    },
+};
 
 use crate::{
     impl_is_pure_true, Cheatcode, Cheatcodes, Result,

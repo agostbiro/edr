@@ -1,7 +1,7 @@
 use std::{cmp::Ordering, collections::HashMap};
 
 use alloy_primitives::{Address, Bytes, U256};
-use revm::{interpreter::InstructionResult, primitives::Bytecode};
+use revm::{bytecode::Bytecode, context::JournalTr, interpreter::InstructionResult};
 
 use crate::{
     impl_is_pure_true, Cheatcode, CheatcodeBackend, Cheatcodes, CheatsCtxt, Result,

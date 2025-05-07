@@ -14,8 +14,10 @@ use foundry_evm_core::{
     constants::{CALLER, CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS, TEST_CONTRACT_ADDRESS},
 };
 use revm::{
-    primitives::{Account, Bytecode, SpecId, KECCAK_EMPTY},
-    InnerEvmContext,
+    bytecode::Bytecode,
+    context::{Block, JournalTr},
+    primitives::{hardfork::SpecId, KECCAK_EMPTY},
+    state::Account,
 };
 use spec::Vm::signCall;
 

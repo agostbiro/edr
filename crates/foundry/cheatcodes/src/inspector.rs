@@ -21,12 +21,17 @@ use foundry_evm_core::{
 };
 use itertools::Itertools;
 use revm::{
+    self,
+    bytecode::opcode as op,
+    context::{BlockEnv, JournalTr},
+    context_interface::{transaction::SignedAuthorization, CreateScheme},
     interpreter::{
-        opcode, CallInputs, CallOutcome, CallScheme, CreateInputs, CreateOutcome, Gas,
-        InstructionResult, Interpreter, InterpreterAction, InterpreterResult,
+        interpreter_types::{Jumps, LoopControl, MemoryTr},
+        CallInputs, CallOutcome, CallScheme, CreateInputs, CreateOutcome, EOFCreateInputs, Gas,
+        Host, InstructionResult, Interpreter, InterpreterAction, InterpreterResult,
     },
-    primitives::{BlockEnv, CreateScheme},
-    EvmContext, InnerEvmContext, Inspector,
+    state::EvmStorageSlot,
+    Inspector,
 };
 use rustc_hash::FxHashMap;
 use serde_json::Value;
@@ -253,7 +258,6 @@ impl Cheatcodes {
             &mut CheatsCtxt {
                 state: self,
                 ecx: &mut ecx.inner,
-                precompiles: &mut ecx.precompiles,
                 caller,
             },
         )
