@@ -545,11 +545,7 @@ impl<
                     reverted: false,
                     deployedCode: Bytes::new(),
                     storageAccesses: vec![],
-                    depth: ecx
-                        .journaled_state
-                        .depth()
-                        .try_into()
-                        .expect("journaled state depth exceeds u64"),
+                    depth: ecx.journaled_state.depth() as u64,
                 };
                 // Ensure that we're not selfdestructing a context recording was initiated on
                 if let Some(last) = account_accesses.last_mut() {
@@ -1086,7 +1082,7 @@ impl<
         let cheatcode_call = call.target_address == CHEATCODE_ADDRESS
             || call.target_address == HARDHAT_CONSOLE_ADDRESS;
 
-        let curr_depth: u64 = ecx.journaled_state.depth() as u64;
+        let curr_depth = ecx.journaled_state.depth() as u64;
 
         // Clean up pranks/broadcasts if it's not a cheatcode call end. We shouldn't do
         // it for cheatcode calls because they are not appplied for cheatcodes in the
@@ -1193,7 +1189,7 @@ impl<
                 // changes. Depending on the depth the cheat was called at,
                 // there may not be any pending calls to update if execution has
                 // percolated up to a higher depth.
-                let curr_depth: u64 = ecx.journaled_state.depth() as u64;
+                let curr_depth = ecx.journaled_state.depth() as u64;
                 if call_access.depth == curr_depth {
                     if let Ok(acc) = ecx.journaled_state.load_account(call.target_address) {
                         debug_assert!(access_is_call(call_access.kind));
@@ -1228,8 +1224,8 @@ impl<
             .expected_emits
             .iter()
             .any(|expected| {
-                let curr_depth: u64 =
-                    ecx.journaled_state.depth().try_into().expect("journaled state depth exceeds u64");
+                let curr_depth =
+                    ecx.journaled_state.depth() as u64;
                 expected.depth == curr_depth
             }) &&
             // Ignore staticcalls
@@ -1376,11 +1372,7 @@ impl<
         >,
         call: &mut CreateInputs,
     ) -> Option<CreateOutcome> {
-        let curr_depth: u64 = ecx
-            .journaled_state
-            .depth()
-            .try_into()
-            .expect("journaled state depth exceeds u64");
+        let curr_depth = ecx.journaled_state.depth() as u64;
 
         // Apply our prank
         if let Some(prank) = &self.prank {
@@ -1445,11 +1437,7 @@ impl<
         _call: &CreateInputs,
         mut outcome: &mut CreateOutcome,
     ) {
-        let curr_depth: u64 = ecx
-            .journaled_state
-            .depth()
-            .try_into()
-            .expect("journaled state depth exceeds u64");
+        let curr_depth = ecx.journaled_state.depth() as u64;
 
         // Clean up pranks
         if let Some(prank) = &self.prank {
