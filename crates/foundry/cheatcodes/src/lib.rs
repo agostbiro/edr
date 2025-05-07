@@ -24,7 +24,6 @@ pub use fs_permissions::{FsAccessKind, FsAccessPermission, FsPermissions, PathPe
 pub use inspector::{BroadcastableTransaction, BroadcastableTransactions, Cheatcodes, Context};
 use revm::{
     context::{CfgEnv, Context as EvmContext},
-    context_interface::JournalTr,
     Journal,
 };
 pub use spec::{CheatcodeDef, Vm};
@@ -58,7 +57,10 @@ pub(crate) trait Cheatcode: CheatcodeDef + DynCheatcode + IsPure {
     ///
     /// Implement this function if you don't need access to the EVM data.
     #[allow(clippy::unimplemented)]
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let _ = state;
         unimplemented!("{}", Self::CHEATCODE.func.id)
     }
@@ -121,7 +123,7 @@ pub(crate) trait Cheatcode: CheatcodeDef + DynCheatcode + IsPure {
 
         let _span = trace_span_and_call(self);
         ccx.journaled_state
-            .db()
+            .database
             .record_cheatcode_purity(Self::CHEATCODE.func.declaration, self.is_pure());
         let result = self.apply_full(ccx);
         trace_return(&result);
@@ -188,7 +190,7 @@ pub(crate) struct CheatsCtxt<
     DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
 > {
     /// The cheatcodes inspector state.
-    pub(crate) state: &'cheats mut Cheatcodes,
+    pub(crate) state: &'cheats mut Cheatcodes<BlockT, TxT, HardforkT>,
     /// The EVM data.
     pub(crate) ecx: &'evm mut EvmContext<
         BlockT,

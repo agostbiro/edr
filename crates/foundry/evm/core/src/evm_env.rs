@@ -1,3 +1,4 @@
+use alloy_primitives::Address;
 use revm::{
     context::{BlockEnv, CfgEnv, Context, TxEnv},
     context_interface::{Block, JournalTr, Transaction},
@@ -70,12 +71,22 @@ pub trait ChainContextTr: Clone {}
 impl<T> ChainContextTr for T where T: Clone {}
 
 pub trait TransactionEnvMut {
+    fn set_caller(&mut self, caller: Address);
     fn set_chain_id(&mut self, chain_id: Option<u64>);
+    fn set_gas_price(&mut self, gas_price: u128);
 }
 
 impl TransactionEnvMut for TxEnv {
+    fn set_caller(&mut self, caller: Address) {
+        self.caller = caller;
+    }
+
     fn set_chain_id(&mut self, chain_id: Option<u64>) {
         self.chain_id = chain_id;
+    }
+
+    fn set_gas_price(&mut self, gas_price: u128) {
+        self.gas_price = gas_price;
     }
 }
 
