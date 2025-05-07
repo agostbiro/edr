@@ -135,12 +135,16 @@ mod tests {
     use alloy_primitives::FixedBytes;
     use hex::FromHex;
     use p256::ecdsa::signature::hazmat::PrehashVerifier;
+    use revm::{
+        context::{BlockEnv, TxEnv},
+        primitives::hardfork::SpecId,
+    };
 
     use super::*;
     use crate::CheatsConfig;
 
     fn cheats() -> Cheatcodes {
-        let config = CheatsConfig {
+        let config = CheatsConfig::<BlockEnv, TxEnv, SpecId> {
             ffi: true,
             project_root: PathBuf::from(&env!("CARGO_MANIFEST_DIR")),
             ..Default::default()
