@@ -50,7 +50,7 @@ pub use in_memory_db::{EmptyDBWrapper, FoundryEvmInMemoryDB, MemDb};
 mod snapshot;
 pub use snapshot::{BackendSnapshot, RevertSnapshotAction, StateSnapshot};
 
-use crate::evm_env::{
+use crate::evm_context::{
     BlockEnvTr, ChainContextTr, EvmEnv, HardforkTr, TransactionEnvMut, TransactionEnvTr,
 };
 

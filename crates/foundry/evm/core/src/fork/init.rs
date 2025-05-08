@@ -7,7 +7,7 @@ use eyre::WrapErr;
 use revm::context::CfgEnv;
 
 use crate::{
-    evm_env::EvmEnv,
+    evm_context::EvmEnv,
     opts::{BlockEnvOpts, TxEnvOpts},
     utils::apply_chain_and_block_specific_env_changes,
 };

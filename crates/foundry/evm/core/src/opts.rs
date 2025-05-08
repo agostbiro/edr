@@ -13,7 +13,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use url::Url;
 
 use super::fork::{environment, provider::ProviderBuilder};
-use crate::evm_env::{BlockEnvTr, EvmEnv, HardforkTr, TransactionEnvTr};
+use crate::evm_context::{BlockEnvTr, EvmEnv, HardforkTr, TransactionEnvTr};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct EvmOpts<BlockT, TxT, HardforkT> {

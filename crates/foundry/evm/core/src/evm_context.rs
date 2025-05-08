@@ -1,12 +1,15 @@
 use alloy_primitives::Address;
 use revm::{
-    context::{BlockEnv, CfgEnv, Context, TxEnv},
+    context::{BlockEnv, CfgEnv, JournalInner, TxEnv},
     context_interface::{Block, JournalTr, Transaction},
     primitives::hardfork::SpecId,
-    Database,
+    Database, Journal, JournalEntry,
 };
 
-use crate::opts::{BlockEnvOpts, TxEnvOpts};
+use crate::{
+    backend::CheatcodeBackend,
+    opts::{BlockEnvOpts, TxEnvOpts},
+};
 
 pub trait HardforkTr:
     'static + Copy + std::fmt::Debug + Default + Into<SpecId> + Send + Sync + Unpin
@@ -90,6 +93,47 @@ impl TransactionEnvMut for TxEnv {
     }
 }
 
+/// Split the database from EVM execution context so that a mutable method can
+/// be called on the database with arguments from the execution context.
+pub fn split_context<'a, BlockT, TxT, HardforkT, DatabaseT, ChainContextT>(
+    context: &'a mut revm::context::Context<
+        BlockT,
+        TxT,
+        CfgEnv<HardforkT>,
+        DatabaseT,
+        Journal<DatabaseT>,
+        ChainContextT,
+    >,
+) -> (
+    &'a mut DatabaseT,
+    EvmContext<'a, BlockT, TxT, HardforkT, ChainContextT>,
+)
+where
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+    DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+{
+    let evm_context = EvmContext {
+        block: &mut context.block,
+        tx: &mut context.tx,
+        cfg: &mut context.cfg,
+        journal: &mut context.journaled_state.inner,
+        chain_context: &mut context.chain,
+    };
+
+    (&mut context.journaled_state.database, evm_context)
+}
+
+pub struct EvmContext<'a, BlockT, TxT, HardforkT, ChainContextT> {
+    pub block: &'a mut BlockT,
+    pub tx: &'a mut TxT,
+    pub cfg: &'a mut CfgEnv<HardforkT>,
+    pub journal: &'a mut JournalInner<JournalEntry>,
+    pub chain_context: &'a mut ChainContextT,
+}
+
 /// EVM execution environment
 #[derive(Clone, Debug, Default)]
 pub struct EvmEnv<BlockT, TxT, HardforkT> {
@@ -99,13 +143,15 @@ pub struct EvmEnv<BlockT, TxT, HardforkT> {
 }
 
 impl<BlockT, TxT, HardforkT, DatabaseT, JournalT, ChainT>
-    From<Context<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, JournalT, ChainT>>
+    From<revm::context::Context<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, JournalT, ChainT>>
     for EvmEnv<BlockT, TxT, HardforkT>
 where
     DatabaseT: Database,
     JournalT: JournalTr<Database = DatabaseT>,
 {
-    fn from(value: Context<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, JournalT, ChainT>) -> Self {
+    fn from(
+        value: revm::context::Context<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, JournalT, ChainT>,
+    ) -> Self {
         Self {
             block: value.block,
             tx: value.tx,

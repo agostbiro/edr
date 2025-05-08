@@ -13,7 +13,8 @@ use revm::{
     database::DatabaseRef,
     handler::PrecompileProvider,
     primitives::HashMap as Map,
-    state::{Account, AccountInfo}, Database, DatabaseCommit, InspectEvm, JournalEntry,
+    state::{Account, AccountInfo},
+    Database, DatabaseCommit, InspectEvm, JournalEntry,
 };
 
 use super::BackendError;
@@ -21,7 +22,7 @@ use crate::{
     backend::{
         diagnostic::RevertDiagnostic, Backend, CheatcodeBackend, LocalForkId, RevertSnapshotAction,
     },
-    evm_env::{BlockEnvTr, ChainContextTr, EvmEnv, HardforkTr, TransactionEnvTr},
+    evm_context::{BlockEnvTr, ChainContextTr, EvmEnv, HardforkTr, TransactionEnvTr},
     fork::{CreateFork, ForkId},
     InspectorExt,
 };

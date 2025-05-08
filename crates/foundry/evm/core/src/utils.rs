@@ -1,4 +1,3 @@
-
 use alloy_chains::NamedChain;
 use alloy_consensus::{BlockHeader, Typed2718};
 use alloy_json_abi::{Function, JsonAbi};
@@ -9,10 +8,7 @@ pub use revm::state::EvmState as StateChangeset;
 use revm::{
     context::{CfgEnv, Evm},
     context_interface::{Block, JournalTr},
-    handler::{
-        instructions::EthInstructions,
-        EthPrecompiles,
-    },
+    handler::{instructions::EthInstructions, EthPrecompiles},
     interpreter::interpreter::EthInterpreter,
     primitives::hardfork::SpecId,
     Context, Database, Inspector, Journal, JournalEntry,
@@ -20,7 +16,7 @@ use revm::{
 
 pub use crate::ic::*;
 use crate::{
-    evm_env::{BlockEnvTr, EvmEnv, HardforkTr, TransactionEnvTr},
+    evm_context::{BlockEnvTr, EvmEnv, HardforkTr, TransactionEnvTr},
     opts::BlockEnvOpts,
 };
 

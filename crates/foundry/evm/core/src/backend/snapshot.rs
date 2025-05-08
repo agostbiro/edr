@@ -3,13 +3,11 @@ use alloy_primitives::{
     B256, U256,
 };
 use revm::{
-    context::JournalInner,
-    context_interface::JournalTr,
-    state::AccountInfo, Database, JournalEntry,
+    context::JournalInner, context_interface::JournalTr, state::AccountInfo, Database, JournalEntry,
 };
 use serde::{Deserialize, Serialize};
 
-use crate::evm_env::EvmEnv;
+use crate::evm_context::EvmEnv;
 
 /// A minimal abstraction of a state at a certain point in time
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
