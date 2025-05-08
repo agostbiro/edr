@@ -51,7 +51,7 @@ mod snapshot;
 pub use snapshot::{BackendSnapshot, RevertSnapshotAction, StateSnapshot};
 
 use crate::evm_context::{
-    BlockEnvTr, ChainContextTr, EvmEnv, HardforkTr, TransactionEnvMut, TransactionEnvTr,
+    BlockEnvTr, ChainContextTr, EvmContext, EvmEnv, HardforkTr, TransactionEnvMut, TransactionEnvTr,
 };
 
 // A `revm::Database` that is used in forking mode
@@ -126,12 +126,11 @@ pub trait CheatcodeBackend<
     ///
     /// Depending on [RevertSnapshotAction] it will keep the snapshot alive or
     /// delete it.
-    fn revert(
-        &mut self,
+    fn revert<'a>(
+        &'a mut self,
         id: U256,
-        journaled_state: &JournalInner<JournalEntry>,
-        env: &mut EvmEnv<BlockT, TxT, HardforkT>,
         action: RevertSnapshotAction,
+        context: &'a mut EvmContext<'a, BlockT, TxT, HardforkT, ChainContextT>,
     ) -> Option<JournalInner<JournalEntry>>;
 
     /// Deletes the snapshot with the given `id`
@@ -146,30 +145,27 @@ pub trait CheatcodeBackend<
     /// Creates and also selects a new fork
     ///
     /// This is basically `create_fork` + `select_fork`
-    fn create_select_fork(
-        &mut self,
+    fn create_select_fork<'a>(
+        &'a mut self,
         fork: CreateFork<BlockT, TxT, HardforkT>,
-        env: &mut EvmEnv<BlockT, TxT, HardforkT>,
-        journaled_state: &mut JournalInner<JournalEntry>,
+        context: &'a mut EvmContext<'a, BlockT, TxT, HardforkT, ChainContextT>,
     ) -> eyre::Result<LocalForkId> {
         let id = self.create_fork(fork)?;
-        self.select_fork(id, env, journaled_state)?;
+        self.select_fork(id, context)?;
         Ok(id)
     }
 
     /// Creates and also selects a new fork
     ///
     /// This is basically `create_fork` + `select_fork`
-    fn create_select_fork_at_transaction(
-        &mut self,
+    fn create_select_fork_at_transaction<'a>(
+        &'a mut self,
         fork: CreateFork<BlockT, TxT, HardforkT>,
-        env: &mut EvmEnv<BlockT, TxT, HardforkT>,
-        journaled_state: &mut JournalInner<JournalEntry>,
         transaction: B256,
-        chain_context: ChainContextT,
+        context: &'a mut EvmContext<'a, BlockT, TxT, HardforkT, ChainContextT>,
     ) -> eyre::Result<LocalForkId> {
-        let id = self.create_fork_at_transaction(fork, transaction, chain_context)?;
-        self.select_fork(id, env, journaled_state)?;
+        let id = self.create_fork_at_transaction(fork, transaction, context.chain_context)?;
+        self.select_fork(id, context)?;
         Ok(id)
     }
 
@@ -184,7 +180,7 @@ pub trait CheatcodeBackend<
         &mut self,
         fork: CreateFork<BlockT, TxT, HardforkT>,
         transaction: B256,
-        chain_context: ChainContextT,
+        chain_context: &mut ChainContextT,
     ) -> eyre::Result<LocalForkId>;
 
     /// Selects the fork's state
@@ -197,11 +193,10 @@ pub trait CheatcodeBackend<
     /// # Errors
     ///
     /// Returns an error if no fork with the given `id` exists
-    fn select_fork(
-        &mut self,
+    fn select_fork<'a>(
+        &'a mut self,
         id: LocalForkId,
-        env: &mut EvmEnv<BlockT, TxT, HardforkT>,
-        journaled_state: &mut JournalInner<JournalEntry>,
+        context: &'a mut EvmContext<'a, BlockT, TxT, HardforkT, ChainContextT>,
     ) -> eyre::Result<()>;
 
     /// Updates the fork to given block number.
@@ -211,12 +206,11 @@ pub trait CheatcodeBackend<
     /// # Errors
     ///
     /// Returns an error if not matching fork was found.
-    fn roll_fork(
-        &mut self,
+    fn roll_fork<'a, 'b, 'c>(
+        &'a mut self,
         id: Option<LocalForkId>,
         block_number: u64,
-        env: &mut EvmEnv<BlockT, TxT, HardforkT>,
-        journaled_state: &mut JournalInner<JournalEntry>,
+        context: &'b mut EvmContext<'c, BlockT, TxT, HardforkT, ChainContextT>,
     ) -> eyre::Result<()>;
 
     /// Updates the fork to given transaction hash
@@ -228,25 +222,23 @@ pub trait CheatcodeBackend<
     /// # Errors
     ///
     /// Returns an error if not matching fork was found.
-    fn roll_fork_to_transaction(
-        &mut self,
+    fn roll_fork_to_transaction<'a, 'b, 'c>(
+        &'a mut self,
         id: Option<LocalForkId>,
         transaction: B256,
-        env: &mut EvmEnv<BlockT, TxT, HardforkT>,
-        journaled_state: &mut JournalInner<JournalEntry>,
-        chain_context: ChainContextT,
-    ) -> eyre::Result<()>;
+        context: &'b mut EvmContext<'c, BlockT, TxT, HardforkT, ChainContextT>,
+    ) -> eyre::Result<()>
+    where
+        'a: 'c;
 
     /// Fetches the given transaction for the fork and executes it, committing
     /// the state in the DB
-    fn transact<InspectorT>(
-        &mut self,
+    fn transact<'a, InspectorT>(
+        &'a mut self,
         id: Option<LocalForkId>,
         transaction: B256,
-        env: &mut EvmEnv<BlockT, TxT, HardforkT>,
-        journaled_state: &mut JournalInner<JournalEntry>,
         inspector: &mut InspectorT,
-        chain_context: ChainContextT,
+        context: &'a mut EvmContext<'a, BlockT, TxT, HardforkT, ChainContextT>,
     ) -> eyre::Result<()>
     where
         InspectorT: InspectorExt<
@@ -962,8 +954,8 @@ impl<
     pub fn inspect<'a, InspectorT>(
         &'a mut self,
         env: &mut EvmEnv<BlockT, TxT, HardforkT>,
-        inspector: InspectorT,
         chain_context: ChainContextT,
+        inspector: InspectorT,
     ) -> eyre::Result<ResultAndState>
     where
         InspectorT: InspectorExt<BlockT, TxT, HardforkT, &'a mut Self, ChainContextT>,
@@ -1073,20 +1065,18 @@ impl<
     ///
     /// Returns the _unmined_ transaction that corresponds to the given
     /// `tx_hash`
-    pub fn replay_until(
-        &mut self,
+    pub fn replay_until<'a, 'b>(
+        &'a mut self,
         id: LocalForkId,
-        env: EvmEnv<BlockT, TxT, HardforkT>,
         tx_hash: B256,
-        journaled_state: &mut JournalInner<JournalEntry>,
-        chain_context: ChainContextT,
+        context: &'b mut EvmContext<'a, BlockT, TxT, HardforkT, ChainContextT>,
     ) -> eyre::Result<Option<RpcTransaction<AnyTxEnvelope>>> {
         trace!(?id, ?tx_hash, "replay until transaction");
 
         let persistent_accounts = self.inner.persistent_accounts.clone();
         let fork_id = self.ensure_fork_id(id)?.clone();
 
-        let env = self.env_with_handler_cfg(env);
+        let env = self.env_with_handler_cfg(context.to_owned_env());
         let fork = self.inner.get_fork_by_id_mut(id)?;
         let full_block = fork.db.db.get_full_block(env.block.number())?;
 
@@ -1107,14 +1097,12 @@ impl<
             trace!(tx=?tx.tx_hash(), "committing transaction");
 
             commit_transaction(
+                context,
                 &tx.inner,
-                env.clone(),
-                journaled_state,
                 fork,
                 &fork_id,
                 &persistent_accounts,
                 &mut NoOpInspector,
-                chain_context.clone(),
             )?;
         }
 
@@ -1148,9 +1136,8 @@ impl<
     fn revert(
         &mut self,
         id: U256,
-        current_state: &JournalInner<JournalEntry>,
-        current: &mut EvmEnv<BlockT, TxT, HardforkT>,
         action: RevertSnapshotAction,
+        context: &mut EvmContext<'_, BlockT, TxT, HardforkT, ChainContextT>,
     ) -> Option<JournalInner<JournalEntry>> {
         trace!(?id, "revert snapshot");
         if let Some(mut snapshot) = self.inner.snapshots.remove_at(id) {
@@ -1160,12 +1147,12 @@ impl<
             }
             // need to check whether there's a global failure which means an error occurred
             // either during the snapshot or even before
-            if self.is_global_failure(current_state) {
+            if self.is_global_failure(context.journaled_state) {
                 self.set_snapshot_failure(true);
             }
 
             // merge additional logs
-            snapshot.merge(current_state);
+            snapshot.merge(context.journaled_state);
             let BackendSnapshot {
                 db,
                 mut journaled_state,
@@ -1179,9 +1166,10 @@ impl<
                     // there might be the case where the snapshot was created during `setUp` with
                     // another caller, so we need to ensure the caller account is present in the
                     // journaled state and database
-                    let caller = current.tx.caller();
+                    let caller = context.tx.caller();
                     journaled_state.state.entry(caller).or_insert_with(|| {
-                        let caller_account = current_state
+                        let caller_account = context
+                            .journaled_state
                             .state
                             .get(&caller)
                             .map(|acc| acc.info.clone())
@@ -1198,7 +1186,7 @@ impl<
                 }
             }
 
-            update_current_env_with_fork_env(current, env);
+            update_current_env_with_fork_env(context, env);
             trace!(target: "backend", "Reverted snapshot {}", id);
 
             Some(journaled_state)
@@ -1238,7 +1226,7 @@ impl<
         &mut self,
         fork: CreateFork<BlockT, TxT, HardforkT>,
         transaction: B256,
-        chain_context: ChainContextT,
+        chain_context: &mut ChainContextT,
     ) -> eyre::Result<LocalForkId> {
         trace!(?transaction, "create fork at transaction");
         let id = self.create_fork(fork)?;
@@ -1250,13 +1238,17 @@ impl<
 
         // we still need to roll to the transaction, but we only need an empty dummy
         // state since we don't need to update the active journaled state yet
-        self.roll_fork_to_transaction(
-            Some(id),
-            transaction,
-            &mut env,
-            &mut self.inner.new_journaled_state(),
+        let mut journaled_state = self.inner.new_journaled_state();
+
+        let mut context = EvmContext {
+            block: &mut env.block,
+            tx: &mut env.tx,
+            cfg: &mut env.cfg,
+            journaled_state: &mut journaled_state,
             chain_context,
-        )?;
+        };
+
+        self.roll_fork_to_transaction(Some(id), transaction, &mut context)?;
         Ok(id)
     }
 
@@ -1265,8 +1257,7 @@ impl<
     fn select_fork(
         &mut self,
         id: LocalForkId,
-        env: &mut EvmEnv<BlockT, TxT, HardforkT>,
-        active_journaled_state: &mut JournalInner<JournalEntry>,
+        context: &mut EvmContext<BlockT, TxT, HardforkT, ChainContextT>,
     ) -> eyre::Result<()> {
         trace!(?id, "select fork");
         if self.is_active_fork(id) {
@@ -1285,10 +1276,14 @@ impl<
         // this point, this ensures the changes performed while the fork was
         // active are recorded
         if let Some(active) = self.active_fork_mut() {
-            active.journaled_state = active_journaled_state.clone();
+            active.journaled_state = context.journaled_state.clone();
 
-            let caller = env.tx.caller();
-            let caller_account = active.journaled_state.state.get(&env.tx.caller()).cloned();
+            let caller = context.tx.caller();
+            let caller_account = active
+                .journaled_state
+                .state
+                .get(&context.tx.caller())
+                .cloned();
             let target_fork = self.inner.get_fork_mut(idx);
 
             // depth 0 will be the default value when the fork was created
@@ -1310,7 +1305,7 @@ impl<
             // selected, we need to update it for all forks and use it as init state
             // for all future forks
 
-            self.set_init_journaled_state(active_journaled_state.clone());
+            self.set_init_journaled_state(context.journaled_state.clone());
             self.prepare_init_journal_state()?;
 
             // Make sure that the next created fork has a depth of 0.
@@ -1325,16 +1320,17 @@ impl<
             // this is a handover where the target fork starts at the same depth where it
             // was selected. This ensures that there are no gaps in depth which
             // would otherwise cause issues with the tracer
-            fork.journaled_state.depth = active_journaled_state.depth;
+            fork.journaled_state.depth = context.journaled_state.depth;
 
             // another edge case where a fork is created and selected during setup with not
             // necessarily the same caller as for the test, however we must always
             // ensure that fork's state contains the current sender
-            let caller = env.tx.caller();
+            let caller = context.tx.caller();
             fork.journaled_state.state.entry(caller).or_insert_with(|| {
-                let caller_account = active_journaled_state
+                let caller_account = context
+                    .journaled_state
                     .state
-                    .get(&env.tx.caller())
+                    .get(&context.tx.caller())
                     .map(|acc| acc.info.clone())
                     .unwrap_or_default();
 
@@ -1345,7 +1341,7 @@ impl<
                 caller_account.into()
             });
 
-            self.update_fork_db(active_journaled_state, &mut fork);
+            self.update_fork_db(context.journaled_state, &mut fork);
 
             // insert the fork back
             self.inner.set_fork(idx, fork);
@@ -1353,19 +1349,18 @@ impl<
 
         self.active_fork_ids = Some((id, idx));
         // update the environment accordingly
-        update_current_env_with_fork_env(env, fork_env);
+        update_current_env_with_fork_env(context, fork_env);
 
         Ok(())
     }
 
     /// This is effectively the same as [`Self::create_select_fork()`] but
     /// updating an existing [`ForkId`] that is mapped to the [`LocalForkId`]
-    fn roll_fork(
-        &mut self,
+    fn roll_fork<'a, 'b, 'c>(
+        &'a mut self,
         id: Option<LocalForkId>,
         block_number: u64,
-        env: &mut EvmEnv<BlockT, TxT, HardforkT>,
-        journaled_state: &mut JournalInner<JournalEntry>,
+        context: &'b mut EvmContext<'c, BlockT, TxT, HardforkT, ChainContextT>,
     ) -> eyre::Result<()> {
         trace!(?id, ?block_number, "roll fork");
         let id = self.ensure_fork(id)?;
@@ -1380,7 +1375,7 @@ impl<
             if active_id == id {
                 // need to update the block's env settings right away, which is otherwise set
                 // when forks are selected `select_fork`
-                update_current_env_with_fork_env(env, fork_env);
+                update_current_env_with_fork_env(context, fork_env);
 
                 // we also need to update the journaled_state right away, this has essentially
                 // the same effect as selecting (`select_fork`) by discarding
@@ -1393,9 +1388,13 @@ impl<
                 let active = self.inner.get_fork_mut(active_idx);
                 active.journaled_state = self.fork_init_journaled_state.clone();
 
-                active.journaled_state.depth = journaled_state.depth;
+                active.journaled_state.depth = context.journaled_state.depth;
                 for addr in persistent_addrs {
-                    merge_journaled_state_data(addr, journaled_state, &mut active.journaled_state);
+                    merge_journaled_state_data(
+                        addr,
+                        &context.journaled_state,
+                        &mut active.journaled_state,
+                    );
                 }
 
                 // Ensure all previously loaded accounts are present in the journaled state to
@@ -1407,12 +1406,12 @@ impl<
                 // but load it in order to reflect their state at the new block
                 // (they should explicitly be marked as persistent if it is
                 // desired to keep state between fork rolls).
-                for (addr, acc) in journaled_state.state.iter() {
+                for (addr, acc) in context.journaled_state.state.iter() {
                     if acc.is_created() {
                         if acc.is_touched() {
                             merge_journaled_state_data(
                                 *addr,
-                                journaled_state,
+                                &context.journaled_state,
                                 &mut active.journaled_state,
                             );
                         }
@@ -1421,20 +1420,21 @@ impl<
                     }
                 }
 
-                *journaled_state = active.journaled_state.clone();
+                *context.journaled_state = active.journaled_state.clone();
             }
         }
         Ok(())
     }
 
-    fn roll_fork_to_transaction(
-        &mut self,
+    fn roll_fork_to_transaction<'a, 'b, 'c>(
+        &'a mut self,
         id: Option<LocalForkId>,
         transaction: B256,
-        env: &mut EvmEnv<BlockT, TxT, HardforkT>,
-        journaled_state: &mut JournalInner<JournalEntry>,
-        chain_context: ChainContextT,
-    ) -> eyre::Result<()> {
+        context: &'b mut EvmContext<'c, BlockT, TxT, HardforkT, ChainContextT>,
+    ) -> eyre::Result<()>
+    where
+        'a: 'c,
+    {
         trace!(?id, ?transaction, "roll fork to transaction");
         let id = self.ensure_fork(id)?;
 
@@ -1442,14 +1442,12 @@ impl<
             self.get_block_number_and_block_for_transaction(id, transaction)?;
 
         // roll the fork to the transaction's block or latest if it's pending
-        self.roll_fork(Some(id), fork_block, env, journaled_state)?;
+        self.roll_fork(Some(id), fork_block, context)?;
 
-        update_env_block(env, &block);
+        update_env_block(&mut context.block, &block);
 
         // replay all transactions that came before
-        let env = env.clone();
-
-        self.replay_until(id, env, transaction, journaled_state, chain_context)?;
+        self.replay_until(id, transaction, context)?;
 
         Ok(())
     }
@@ -1458,10 +1456,8 @@ impl<
         &mut self,
         maybe_id: Option<LocalForkId>,
         transaction: B256,
-        env: &mut EvmEnv<BlockT, TxT, HardforkT>,
-        journaled_state: &mut JournalInner<JournalEntry>,
         inspector: &mut InspectorT,
-        chain_context: ChainContextT,
+        context: &mut EvmContext<BlockT, TxT, HardforkT, ChainContextT>,
     ) -> eyre::Result<()>
     where
         InspectorT: InspectorExt<
@@ -1486,20 +1482,25 @@ impl<
         // So we modify the env to match the transaction's block
         let (_fork_block, block) =
             self.get_block_number_and_block_for_transaction(id, transaction)?;
-        let mut env = env.clone();
+        let mut env = context.to_owned_env();
         update_env_block(&mut env, &block);
+        let mut env = self.env_with_handler_cfg(env);
 
-        let env = self.env_with_handler_cfg(env);
+        let mut modified_context = EvmContext {
+            block: &mut env.block,
+            tx: &mut env.tx,
+            cfg: &mut env.cfg,
+            journaled_state: context.journaled_state,
+            chain_context: context.chain_context,
+        };
         let fork = self.inner.get_fork_by_id_mut(id)?;
         commit_transaction(
+            &mut modified_context,
             &tx,
-            env,
-            journaled_state,
             fork,
             &fork_id,
             &persistent_accounts,
             inspector,
-            chain_context,
         )
     }
 
@@ -2093,14 +2094,14 @@ pub struct LaunchedWithFork {
 }
 
 /// This updates the currently used env with the fork's environment
-pub(crate) fn update_current_env_with_fork_env<BlockT, TxT, HardforkT>(
-    current: &mut EvmEnv<BlockT, TxT, HardforkT>,
+pub(crate) fn update_current_env_with_fork_env<BlockT, TxT, HardforkT, ChainContextT>(
+    current: &mut EvmContext<BlockT, TxT, HardforkT, ChainContextT>,
     fork: EvmEnv<BlockT, TxT, HardforkT>,
 ) where
     TxT: Transaction + TransactionEnvMut,
 {
-    current.block = fork.block;
-    current.cfg = fork.cfg;
+    *current.block = fork.block;
+    *current.cfg = fork.cfg;
     current.tx.set_chain_id(fork.tx.chain_id());
 }
 
@@ -2202,10 +2203,7 @@ fn is_contract_in_state(journaled_state: &JournalInner<JournalEntry>, acc: Addre
 }
 
 /// Updates the env's block with the block's data
-fn update_env_block<BlockT, TxT, HardforkT>(
-    env: &mut EvmEnv<BlockT, TxT, HardforkT>,
-    block: &AnyRpcBlock,
-) {
+fn update_env_block<BlockT>(block_env: &mut BlockT, block: &AnyRpcBlock) {
     todo!()
     // env.block.timestamp = block.header.timestamp;
     // env.block.beneficiary = block.header.beneficiary;
@@ -2223,20 +2221,20 @@ fn update_env_block<BlockT, TxT, HardforkT>(
 /// Executes the given transaction and commits state changes to the database
 /// _and_ the journaled state, with an optional inspector
 fn commit_transaction<
+    'a,
+    'b,
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
     HardforkT: HardforkTr,
     ChainContextT: ChainContextTr,
     InspectorT,
 >(
+    context: &'b mut EvmContext<'a, BlockT, TxT, HardforkT, ChainContextT>,
     tx: &RpcTransaction<AnyTxEnvelope>,
-    mut env: EvmEnv<BlockT, TxT, HardforkT>,
-    journaled_state: &mut JournalInner<JournalEntry>,
     fork: &mut Fork,
     fork_id: &ForkId,
     persistent_accounts: &HashSet<Address>,
     inspector: InspectorT,
-    chain_context: ChainContextT,
 ) -> eyre::Result<()>
 where
     InspectorT: InspectorExt<
@@ -2247,20 +2245,29 @@ where
         ChainContextT,
     >,
 {
-    configure_tx_env(&mut env, tx);
+    configure_tx_env(context.tx, tx);
 
     let now = Instant::now();
     let res = {
         let fork = fork.clone();
-        let journaled_state = journaled_state.clone();
+        let journaled_state = context.journaled_state.clone();
         let db = Backend::new_with_fork(fork_id, fork, journaled_state);
-        crate::utils::new_evm_with_inspector(db, env, inspector, chain_context)
+
+        let env = context.to_owned_env();
+        let chain = context.chain_context.clone();
+
+        crate::utils::new_evm_with_inspector(db, env, inspector, chain)
             .inspect_replay()
             .wrap_err("backend: failed committing transaction")?
     };
     trace!(elapsed = ?now.elapsed(), "transacted transaction");
 
-    apply_state_changeset(res.state, journaled_state, fork, persistent_accounts)?;
+    apply_state_changeset(
+        res.state,
+        context.journaled_state,
+        fork,
+        persistent_accounts,
+    )?;
     Ok(())
 }
 

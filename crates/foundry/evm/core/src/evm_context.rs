@@ -1,10 +1,13 @@
 use alloy_primitives::Address;
 use revm::{
-    context::{BlockEnv, CfgEnv, JournalInner, TxEnv},
+    context::{BlockEnv, CfgEnv, Evm, JournalInner, TxEnv},
     context_interface::{Block, JournalTr, Transaction},
+    handler::{instructions::EthInstructions, EthPrecompiles},
+    interpreter::interpreter::EthInterpreter,
     primitives::hardfork::SpecId,
-    Database, Journal, JournalEntry,
+    Database, Inspector, Journal, JournalEntry,
 };
+use yansi::Paint;
 
 use crate::{
     backend::CheatcodeBackend,
@@ -119,7 +122,7 @@ where
         block: &mut context.block,
         tx: &mut context.tx,
         cfg: &mut context.cfg,
-        journal: &mut context.journaled_state.inner,
+        journaled_state: &mut context.journaled_state.inner,
         chain_context: &mut context.chain,
     };
 
@@ -130,8 +133,89 @@ pub struct EvmContext<'a, BlockT, TxT, HardforkT, ChainContextT> {
     pub block: &'a mut BlockT,
     pub tx: &'a mut TxT,
     pub cfg: &'a mut CfgEnv<HardforkT>,
-    pub journal: &'a mut JournalInner<JournalEntry>,
+    pub journaled_state: &'a mut JournalInner<JournalEntry>,
     pub chain_context: &'a mut ChainContextT,
+}
+
+impl<'a, BlockT, TxT, HardforkT, ChainContextT>
+    EvmContext<'a, BlockT, TxT, HardforkT, ChainContextT>
+where
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+{
+    pub fn to_owned_env(&self) -> EvmEnv<BlockT, TxT, HardforkT> {
+        EvmEnv {
+            block: self.block.clone(),
+            tx: self.tx.clone(),
+            cfg: self.cfg.clone(),
+        }
+    }
+
+    // pub fn new_evm_with_inspector<DatabaseT, InspectorT>(
+    //     &'a self,
+    //     db: DatabaseT,
+    //     inspector: InspectorT,
+    // ) -> Evm<
+    //     revm::context::Context<
+    //         BlockT,
+    //         TxT,
+    //         CfgEnv<HardforkT>,
+    //         DatabaseT,
+    //         Journal<DatabaseT>,
+    //         ChainContextT,
+    //     >,
+    //     InspectorT,
+    //     EthInstructions<
+    //         EthInterpreter,
+    //         revm::context::Context<
+    //             BlockT,
+    //             TxT,
+    //             CfgEnv<HardforkT>,
+    //             DatabaseT,
+    //             Journal<DatabaseT>,
+    //             ChainContextT,
+    //         >,
+    //     >,
+    //     EthPrecompiles,
+    // >
+    // where
+    //     InspectorT: Inspector<
+    //         revm::context::Context<
+    //             BlockT,
+    //             TxT,
+    //             CfgEnv<HardforkT>,
+    //             DatabaseT,
+    //             Journal<DatabaseT>,
+    //             ChainContextT,
+    //         >,
+    //         EthInterpreter,
+    //     >,
+    //     BlockT: BlockEnvTr,
+    //     TxT: TransactionEnvTr,
+    //     HardforkT: HardforkTr,
+    //     DatabaseT: Database,
+    // {
+    //     let mut journaled_state = Journal::<_, JournalEntry>::new(db);
+    //     journaled_state.set_spec_id((&self.cfg.spec).into());
+    //
+    //     let context = revm::context::Context {
+    //         tx: self.tx.clone(),
+    //         block: self.block.clone(),
+    //         cfg: self.cfg.clone(),
+    //         journaled_state,
+    //         chain: self.chain_context.clone(),
+    //         error: Ok(()),
+    //     };
+    //
+    //     Evm::new_with_inspector(
+    //         context,
+    //         inspector,
+    //         EthInstructions::default(),
+    //         EthPrecompiles::default(),
+    //     )
+    // }
 }
 
 /// EVM execution environment

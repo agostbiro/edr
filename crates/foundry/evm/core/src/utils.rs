@@ -16,7 +16,7 @@ use revm::{
 
 pub use crate::ic::*;
 use crate::{
-    evm_context::{BlockEnvTr, EvmEnv, HardforkTr, TransactionEnvTr},
+    evm_context::{BlockEnvTr, EvmContext, EvmEnv, HardforkTr, TransactionEnvTr},
     opts::BlockEnvOpts,
 };
 
@@ -119,12 +119,12 @@ pub fn is_impersonated_sig(sig: &PrimitiveSignature, ty: u8) -> bool {
 }
 
 /// Configures the env for the given RPC transaction.
-pub fn configure_tx_env<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
-    env: &mut EvmEnv<BlockT, TxT, HardforkT>,
+pub fn configure_tx_env<TxT: TransactionEnvTr>(
+    tx_env: &mut TxT,
     tx: &RpcTransaction<AnyTxEnvelope>,
 ) {
     if let AnyTxEnvelope::Ethereum(tx) = &tx.inner.inner() {
-        configure_tx_req_env(env, &tx.clone().into()).expect("cannot fail");
+        configure_tx_req_env(tx_env, &tx.clone().into()).expect("cannot fail");
     }
 }
 
@@ -231,10 +231,6 @@ where
     Evm::new_with_inspector(
         context,
         inspector,
-        // EthInstructions::<
-        //     EthInterpreter,
-        //     Context<BlockT, TxT, HardforkT, DatabaseT, Journal<DatabaseT>, ChainContextT>,
-        // >::default(),
         EthInstructions::default(),
         EthPrecompiles::default(),
     )
@@ -248,13 +244,21 @@ mod tests {
 
     #[test]
     fn build_evm() {
+        let mut env = EvmEnv::default_mainnet_with_spec_id(SpecId::default());
         let mut db = EmptyDB::default();
+        let mut journal = Journal::new(db);
 
-        let env = EvmEnv::default_mainnet_with_spec_id(SpecId::default());
+        let context = EvmContext {
+            block: &mut env.block,
+            tx: &mut env.tx,
+            cfg: &mut env.cfg,
+            journaled_state: &mut journal,
+            chain_context: &mut (),
+        };
 
         let mut inspector = NoOpInspector;
 
-        let mut evm = new_evm_with_inspector(&mut db, env, &mut inspector, ());
+        let mut evm = context.new_evm_with_inspector(&mut db, &mut inspector);
         let result = evm.transact(Default::default()).unwrap();
         assert!(result.result.is_success());
     }
