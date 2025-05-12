@@ -652,16 +652,16 @@ fn create_fork_request<
     block: Option<u64>,
 ) -> Result<CreateFork<BlockT, TxT, HardforkT>> {
     let url = ccx.state.config.rpc_url(url_or_alias)?;
+
     let mut evm_opts = ccx.state.config.evm_opts.clone();
     evm_opts.fork_block_number = block;
+
+    let context: EvmContext<'_, _, _, _, _> = ccx.ecx.into();
+
     let fork = CreateFork {
         rpc_cache_path: ccx.state.config.rpc_cache_path.clone(),
         url,
-        env: EvmEnv {
-            block: (*ccx.ecx).block.clone(),
-            tx: (*ccx.ecx).tx.clone(),
-            cfg: (*ccx.ecx).cfg.clone(),
-        },
+        env: context.to_owned_env(),
         evm_opts,
     };
     Ok(fork)
