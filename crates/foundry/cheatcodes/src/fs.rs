@@ -708,7 +708,10 @@ mod tests {
     use std::sync::Arc;
 
     use alloy_sol_types::private::alloy_json_abi::ContractObject;
-    use revm::context::{BlockEnv, SpecId, TxEnv};
+    use revm::{
+        context::{BlockEnv, TxEnv},
+        primitives::hardfork::SpecId,
+    };
 
     use super::*;
     use crate::CheatsConfig;

@@ -244,21 +244,12 @@ mod tests {
 
     #[test]
     fn build_evm() {
-        let mut env = EvmEnv::default_mainnet_with_spec_id(SpecId::default());
+        let env = EvmEnv::default_mainnet_with_spec_id(SpecId::default());
         let mut db = EmptyDB::default();
-        let mut journal = Journal::new(db);
-
-        let context = EvmContext {
-            block: &mut env.block,
-            tx: &mut env.tx,
-            cfg: &mut env.cfg,
-            journaled_state: &mut journal,
-            chain_context: &mut (),
-        };
 
         let mut inspector = NoOpInspector;
 
-        let mut evm = context.new_evm_with_inspector(&context, &mut db, &mut inspector);
+        let mut evm = new_evm_with_inspector(&mut db, env, &mut inspector, ());
         let result = evm.transact(Default::default()).unwrap();
         assert!(result.result.is_success());
     }
