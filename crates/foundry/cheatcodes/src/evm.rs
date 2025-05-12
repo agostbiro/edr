@@ -383,7 +383,7 @@ impl Cheatcode for coinbaseCall {
         ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { newCoinbase } = self;
-        ccx.ecx.env.block.coinbase = *newCoinbase;
+        ccx.ecx.block.set_beneficiary(*newCoinbase);
         Ok(Vec::default())
     }
 }
@@ -406,7 +406,7 @@ impl Cheatcode for difficultyCall {
             "`difficulty` is not supported after the Paris hard fork, use `prevrandao` instead; \
              see EIP-4399: https://eips.ethereum.org/EIPS/eip-4399"
         );
-        ccx.ecx.env.block.difficulty = *newDifficulty;
+        ccx.ecx.block.set_difficulty(*newDifficulty);
         Ok(Vec::default())
     }
 }
@@ -424,7 +424,11 @@ impl Cheatcode for feeCall {
         ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { newBasefee } = self;
-        ccx.ecx.env.block.basefee = *newBasefee;
+        ensure!(
+            *newBasefee <= U256::from(u64::MAX),
+            "base fee must be less than 2^64 - 1"
+        );
+        ccx.ecx.block.set_basefee(newBasefee.saturating_to());
         Ok(Vec::default())
     }
 }
@@ -447,7 +451,7 @@ impl Cheatcode for prevrandao_0Call {
             "`prevrandao` is not supported before the Paris hard fork, use `difficulty` instead; \
              see EIP-4399: https://eips.ethereum.org/EIPS/eip-4399"
         );
-        ccx.ecx.env.block.prevrandao = Some(*newPrevrandao);
+        ccx.ecx.block.set_prevrandao(*newPrevrandao);
         Ok(Vec::default())
     }
 }
@@ -470,7 +474,7 @@ impl Cheatcode for prevrandao_1Call {
             "`prevrandao` is not supported before the Paris hard fork, use `difficulty` instead; \
              see EIP-4399: https://eips.ethereum.org/EIPS/eip-4399"
         );
-        ccx.ecx.env.block.prevrandao = Some((*newPrevrandao).into());
+        ccx.ecx.block.set_prevrandao((*newPrevrandao).into());
         Ok(Vec::default())
     }
 }
@@ -493,8 +497,7 @@ impl Cheatcode for blobhashesCall {
             "`blobhash` is not supported before the Cancun hard fork; \
              see EIP-4844: https://eips.ethereum.org/EIPS/eip-4844"
         );
-        ccx.ecx.env.tx.blob_hashes.clone_from(hashes);
-        ccx.ecx.tx.blob_hashes.clone_from(hashes);
+        ccx.ecx.tx.set_blob_versioned_hashes(hashes.clone());
         Ok(Vec::default())
     }
 }
@@ -517,7 +520,7 @@ impl Cheatcode for getBlobhashesCall {
             "`blobhash` is not supported before the Cancun hard fork; \
              see EIP-4844: https://eips.ethereum.org/EIPS/eip-4844"
         );
-        Ok(ccx.ecx.tx.blob_hashes.clone().abi_encode())
+        Ok(ccx.ecx.tx.blob_versioned_hashes().clone().abi_encode())
     }
 }
 
@@ -534,7 +537,11 @@ impl Cheatcode for rollCall {
         ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { newHeight } = self;
-        ccx.ecx.env.block.number = *newHeight;
+        ensure!(
+            *newHeight <= U256::from(u64::MAX),
+            "block height must be less than 2^64 - 1"
+        );
+        ccx.ecx.block.set_block_number(newHeight.saturating_to());
         Ok(Vec::default())
     }
 }
@@ -552,7 +559,7 @@ impl Cheatcode for getBlockNumberCall {
         ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self {} = self;
-        Ok(ccx.ecx.env.block.number.abi_encode())
+        Ok(ccx.ecx.block.number().abi_encode())
     }
 }
 
@@ -569,7 +576,11 @@ impl Cheatcode for txGasPriceCall {
         ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { newGasPrice } = self;
-        ccx.ecx.env.tx.gas_price = *newGasPrice;
+        ensure!(
+            *newGasPrice <= U256::from(u128::MAX),
+            "gas price must be less than 2^128 - 1"
+        );
+        ccx.ecx.tx.set_gas_price(newGasPrice.saturating_to());
         Ok(Vec::default())
     }
 }
@@ -587,7 +598,11 @@ impl Cheatcode for warpCall {
         ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { newTimestamp } = self;
-        ccx.ecx.env.block.timestamp = *newTimestamp;
+        ensure!(
+            *newTimestamp <= U256::from(u64::MAX),
+            "timestamp must be less than 2^64 - 1"
+        );
+        ccx.ecx.block.set_timestamp(newTimestamp.saturating_to());
         Ok(Vec::default())
     }
 }
@@ -622,15 +637,15 @@ impl Cheatcode for blobBaseFeeCall {
         ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { newBlobBaseFee } = self;
+        let spec_id: SpecId = ccx.ecx.cfg.spec.into();
         ensure!(
-            ccx.ecx.cfg.spec.into() >= SpecId::CANCUN,
+            spec_id >= SpecId::CANCUN,
             "`blobBaseFee` is not supported before the Cancun hard fork; \
              see EIP-4844: https://eips.ethereum.org/EIPS/eip-4844"
         );
-        ccx.ecx.env.block.set_blob_excess_gas_and_price(
-            (*newBlobBaseFee).to(),
-            ccx.ecx.spec_id() >= SpecId::PRAGUE,
-        );
+        ccx.ecx
+            .block
+            .set_blob_excess_gas_and_price((*newBlobBaseFee).to(), spec_id >= SpecId::PRAGUE);
         Ok(Vec::default())
     }
 }

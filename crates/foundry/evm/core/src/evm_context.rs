@@ -1,4 +1,4 @@
-use alloy_primitives::Address;
+use alloy_primitives::{Address, B256, U256};
 use revm::{
     context::{BlockEnv, CfgEnv, Evm, JournalInner, TxEnv},
     context_interface::{Block, JournalTr, Transaction},
@@ -34,6 +34,7 @@ pub trait BlockEnvTr:
     + From<BlockEnv>
     + Into<BlockEnv>
     + Block
+    + BlockEnvMut
     + Send
     + Sync
     + Unpin
@@ -48,6 +49,7 @@ impl<T> BlockEnvTr for T where
         + From<BlockEnv>
         + Into<BlockEnv>
         + Block
+        + BlockEnvMut
         + Send
         + Sync
         + Unpin
@@ -77,12 +79,17 @@ pub trait ChainContextTr: Clone {}
 impl<T> ChainContextTr for T where T: Clone {}
 
 pub trait TransactionEnvMut {
+    fn set_blob_versioned_hashes(&mut self, blob_hashes: Vec<B256>);
     fn set_caller(&mut self, caller: Address);
     fn set_chain_id(&mut self, chain_id: Option<u64>);
     fn set_gas_price(&mut self, gas_price: u128);
 }
 
 impl TransactionEnvMut for TxEnv {
+    fn set_blob_versioned_hashes(&mut self, blob_hashes: Vec<B256>) {
+        self.blob_hashes = blob_hashes;
+    }
+
     fn set_caller(&mut self, caller: Address) {
         self.caller = caller;
     }
@@ -93,6 +100,46 @@ impl TransactionEnvMut for TxEnv {
 
     fn set_gas_price(&mut self, gas_price: u128) {
         self.gas_price = gas_price;
+    }
+}
+
+pub trait BlockEnvMut {
+    fn set_basefee(&mut self, basefee: u64);
+    fn set_beneficiary(&mut self, beneficiary: Address);
+    fn set_block_number(&mut self, block_number: u64);
+    fn set_blob_excess_gas_and_price(&mut self, excess_blob_gas: u64, is_prague: bool);
+    fn set_difficulty(&mut self, difficulty: U256);
+    fn set_prevrandao(&mut self, prevrandao: B256);
+    fn set_timestamp(&mut self, timestamp: u64);
+}
+
+impl BlockEnvMut for BlockEnv {
+    fn set_basefee(&mut self, basefee: u64) {
+        self.basefee = basefee;
+    }
+
+    fn set_blob_excess_gas_and_price(&mut self, excess_blob_gas: u64, is_prague: bool) {
+        self.set_blob_excess_gas_and_price(excess_blob_gas, is_prague);
+    }
+
+    fn set_beneficiary(&mut self, coinbase: Address) {
+        self.beneficiary = coinbase;
+    }
+
+    fn set_difficulty(&mut self, difficulty: U256) {
+        self.difficulty = difficulty;
+    }
+
+    fn set_prevrandao(&mut self, prevrandao: B256) {
+        self.prevrandao = Some(prevrandao);
+    }
+
+    fn set_block_number(&mut self, block_number: u64) {
+        self.number = block_number;
+    }
+
+    fn set_timestamp(&mut self, timestamp: u64) {
+        self.timestamp = timestamp;
     }
 }
 
