@@ -129,8 +129,8 @@ pub fn configure_tx_env<TxT: TransactionEnvTr>(
 }
 
 /// Configures the env for the given RPC transaction request.
-pub fn configure_tx_req_env<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
-    env: &mut EvmEnv<BlockT, TxT, HardforkT>,
+pub fn configure_tx_req_env<TxT: TransactionEnvTr>(
+    tx_env: &mut TxT,
     tx: &TransactionRequest,
 ) -> eyre::Result<()> {
     todo!("rpc conversion");
@@ -258,7 +258,7 @@ mod tests {
 
         let mut inspector = NoOpInspector;
 
-        let mut evm = context.new_evm_with_inspector(&mut db, &mut inspector);
+        let mut evm = context.new_evm_with_inspector(&context, &mut db, &mut inspector);
         let result = evm.transact(Default::default()).unwrap();
         assert!(result.result.is_success());
     }

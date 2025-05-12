@@ -193,10 +193,10 @@ pub trait CheatcodeBackend<
     /// # Errors
     ///
     /// Returns an error if no fork with the given `id` exists
-    fn select_fork<'a>(
-        &'a mut self,
+    fn select_fork(
+        &mut self,
         id: LocalForkId,
-        context: &'a mut EvmContext<'a, BlockT, TxT, HardforkT, ChainContextT>,
+        context: &mut EvmContext<'_, BlockT, TxT, HardforkT, ChainContextT>,
     ) -> eyre::Result<()>;
 
     /// Updates the fork to given block number.

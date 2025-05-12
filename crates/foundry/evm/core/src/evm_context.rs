@@ -143,7 +143,6 @@ where
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
     HardforkT: HardforkTr,
-    ChainContextT: ChainContextTr,
 {
     pub fn to_owned_env(&self) -> EvmEnv<BlockT, TxT, HardforkT> {
         EvmEnv {
@@ -152,70 +151,6 @@ where
             cfg: self.cfg.clone(),
         }
     }
-
-    // pub fn new_evm_with_inspector<DatabaseT, InspectorT>(
-    //     &'a self,
-    //     db: DatabaseT,
-    //     inspector: InspectorT,
-    // ) -> Evm<
-    //     revm::context::Context<
-    //         BlockT,
-    //         TxT,
-    //         CfgEnv<HardforkT>,
-    //         DatabaseT,
-    //         Journal<DatabaseT>,
-    //         ChainContextT,
-    //     >,
-    //     InspectorT,
-    //     EthInstructions<
-    //         EthInterpreter,
-    //         revm::context::Context<
-    //             BlockT,
-    //             TxT,
-    //             CfgEnv<HardforkT>,
-    //             DatabaseT,
-    //             Journal<DatabaseT>,
-    //             ChainContextT,
-    //         >,
-    //     >,
-    //     EthPrecompiles,
-    // >
-    // where
-    //     InspectorT: Inspector<
-    //         revm::context::Context<
-    //             BlockT,
-    //             TxT,
-    //             CfgEnv<HardforkT>,
-    //             DatabaseT,
-    //             Journal<DatabaseT>,
-    //             ChainContextT,
-    //         >,
-    //         EthInterpreter,
-    //     >,
-    //     BlockT: BlockEnvTr,
-    //     TxT: TransactionEnvTr,
-    //     HardforkT: HardforkTr,
-    //     DatabaseT: Database,
-    // {
-    //     let mut journaled_state = Journal::<_, JournalEntry>::new(db);
-    //     journaled_state.set_spec_id((&self.cfg.spec).into());
-    //
-    //     let context = revm::context::Context {
-    //         tx: self.tx.clone(),
-    //         block: self.block.clone(),
-    //         cfg: self.cfg.clone(),
-    //         journaled_state,
-    //         chain: self.chain_context.clone(),
-    //         error: Ok(()),
-    //     };
-    //
-    //     Evm::new_with_inspector(
-    //         context,
-    //         inspector,
-    //         EthInstructions::default(),
-    //         EthPrecompiles::default(),
-    //     )
-    // }
 }
 
 /// EVM execution environment
