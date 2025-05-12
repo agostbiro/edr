@@ -139,7 +139,7 @@ pub trait CheatcodeBackend<
     TxT: TransactionEnvTr,
     HardforkT: HardforkTr,
     ChainContextT: ChainContextTr,
->: Database
+>: Database<Error = DatabaseError>
 {
     /// Creates a new snapshot at the current point of execution.
     ///
