@@ -31,7 +31,7 @@ where
     /// The spec ID.
     spec_id: HardforkT,
     /// The fork to use at launch
-    fork: Option<CreateFork>,
+    fork: Option<CreateFork<BlockT, TxT, HardforkT>>,
     /// The configured evm
     env: EvmEnv<BlockT, TxT, HardforkT>,
     /// The chain context
@@ -98,7 +98,7 @@ where
 
     /// Set the fork
     #[inline]
-    pub fn fork(mut self, fork: Option<CreateFork>) -> Self {
+    pub fn fork(mut self, fork: Option<CreateFork<BlockT, TxT, HardforkT>>) -> Self {
         self.fork = fork;
         self
     }
@@ -131,7 +131,7 @@ where
             chain_context,
         } = self;
 
-        stack.block = Some(env.block.clone());
+        stack.block = Some(env.block.clone().into());
         stack.gas_price = Some(env.tx.gas_price());
 
         env.cfg.spec = spec_id;

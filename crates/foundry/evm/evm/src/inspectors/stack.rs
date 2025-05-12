@@ -844,11 +844,11 @@ impl<
         >,
         call: &CreateInputs,
         outcome: &mut CreateOutcome,
-    ) -> CreateOutcome {
+    ) {
         // Inner context calls with depth 0 are being dispatched as top-level calls with
         // depth 1. Avoid processing twice.
         if self.in_inner_context && ecx.journaled_state.depth == 0 {
-            return outcome;
+            return;
         }
 
         let result = outcome.result.result;
@@ -856,14 +856,15 @@ impl<
         call_inspectors_adjust_depth!(
             [&mut self.tracer, &mut self.cheatcodes],
             |inspector| {
-                let new_outcome = inspector.create_end(ecx, call, outcome.clone());
+                let previous_outcome = outcome.clone();
+                let new_outcome = inspector.create_end(ecx, call, outcome);
 
                 // If the inspector returns a different status or a revert with a non-empty
                 // message, we assume it wants to tell us something
-                let different = new_outcome.result.result != result
-                    || (new_outcome.result.result == InstructionResult::Revert
-                        && new_outcome.output() != outcome.output());
-                different.then_some(new_outcome)
+                let different = outcome.result.result != result
+                    || (outcome.result.result == InstructionResult::Revert
+                        && outcome.output() != previous_outcome.output());
+                different.then_some(outcome.clone())
             },
             self,
             ecx
