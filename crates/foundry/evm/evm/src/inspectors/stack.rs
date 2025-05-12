@@ -1,19 +1,20 @@
 use std::sync::Arc;
 
-use alloy_primitives::{map::AddressHashMap, Address, Bytes, Log, U256};
+use alloy_primitives::{map::AddressHashMap, Address, Bytes, Log, TxKind, U256};
 use foundry_evm_core::{
     backend::{update_state, CheatcodeBackend},
-    evm_context::EvmEnv,
+    evm_context::{BlockEnvTr, ChainContextTr, EvmEnv, HardforkTr, TransactionEnvTr},
 };
 use foundry_evm_coverage::HitMaps;
 use foundry_evm_traces::SparsedTraceArena;
 use revm::{
     context::{result::ExecutionResult, BlockEnv},
+    context_interface::result::Output,
     interpreter::{
         CallInputs, CallOutcome, CallScheme, CreateInputs, CreateOutcome, Gas, InstructionResult,
         Interpreter, InterpreterResult,
     },
-    DatabaseCommit, EvmContext, Inspector,
+    DatabaseCommit, Inspector,
 };
 
 use super::{
@@ -33,7 +34,7 @@ pub struct InspectorStackBuilder {
     ///
     /// Used in the cheatcode handler to overwrite the gas price separately from
     /// the gas price in the execution environment.
-    pub gas_price: Option<U256>,
+    pub gas_price: Option<u128>,
     /// The cheatcodes config.
     pub cheatcodes: Option<Arc<CheatsConfig>>,
     /// The fuzzer inspector and its state, if it exists.
@@ -276,9 +277,12 @@ impl InspectorStack {
 
     /// Set variables from an environment for the relevant inspectors.
     #[inline]
-    pub fn set_env(&mut self, env: EvmEnv<BlockT, TxT, HardforkT>) {
+    pub fn set_env<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &mut self,
+        env: EvmEnv<BlockT, TxT, HardforkT>,
+    ) {
         self.set_block(env.block.into());
-        self.set_gas_price(env.tx.gas_price);
+        self.set_gas_price(env.tx.gas_price());
     }
 
     /// Sets the block for the relevant inspectors.

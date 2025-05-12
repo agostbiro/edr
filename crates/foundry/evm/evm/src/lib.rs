@@ -15,9 +15,7 @@ use tokio as _;
 pub mod executors;
 pub mod inspectors;
 
-pub use foundry_evm_core::{
-    abi, backend, constants, contracts, decode, fork, opts, utils, InspectorTr,
-};
+pub use foundry_evm_core::{abi, backend, constants, contracts, decode, fork, opts, utils};
 pub use foundry_evm_coverage as coverage;
 pub use foundry_evm_fuzz as fuzz;
 pub use foundry_evm_traces as traces;

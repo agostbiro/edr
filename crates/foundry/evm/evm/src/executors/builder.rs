@@ -1,5 +1,9 @@
 use alloy_primitives::U256;
-use foundry_evm_core::{backend::Backend, fork::CreateFork};
+use foundry_evm_core::{
+    backend::Backend,
+    evm_context::{BlockEnvTr, ChainContextTr, EvmEnv, HardforkTr, TransactionEnvTr},
+    fork::CreateFork,
+};
 
 use crate::{executors::Executor, inspectors::InspectorStackBuilder};
 
@@ -13,33 +17,55 @@ use crate::{executors::Executor, inspectors::InspectorStackBuilder};
 /// [`InspectorStack`]: super::inspector::InspectorStack
 #[derive(Clone, Debug)]
 #[must_use = "builders do nothing unless you call `build` on them"]
-pub struct ExecutorBuilder {
+pub struct ExecutorBuilder<BlockT, TxT, HardforkT, ChainContextT>
+where
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+{
     /// The configuration used to build an [`InspectorStack`].
     stack: InspectorStackBuilder,
     /// The gas limit.
-    gas_limit: Option<U256>,
+    gas_limit: Option<u64>,
     /// The spec ID.
-    spec_id: SpecId,
+    spec_id: HardforkT,
     /// The fork to use at launch
     fork: Option<CreateFork>,
     /// The configured evm
-    env: Env,
+    env: EvmEnv<BlockT, TxT, HardforkT>,
+    /// The chain context
+    chain_context: Option<ChainContextT>,
 }
 
-impl Default for ExecutorBuilder {
+impl<BlockT, TxT, HardforkT, ChainContextT> Default
+    for ExecutorBuilder<BlockT, TxT, HardforkT, ChainContextT>
+where
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+{
     #[inline]
     fn default() -> Self {
         Self {
             stack: InspectorStackBuilder::new(),
             gas_limit: None,
-            spec_id: SpecId::LATEST,
+            spec_id: HardforkT::default(),
             fork: None,
-            env: Env::default(),
+            env: EvmEnv::default(),
+            chain_context: ChainContexT::default(),
         }
     }
 }
 
-impl ExecutorBuilder {
+impl<BlockT, TxT, HardforkT, ChainContextT> ExecutorBuilder<BlockT, TxT, HardforkT, ChainContextT>
+where
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr + Default,
+    ChainContextT: ChainContextTr + Default,
+{
     /// Create a new executor builder.
     #[inline]
     pub fn new() -> Self {
@@ -58,8 +84,15 @@ impl ExecutorBuilder {
 
     /// Set the env
     #[inline]
-    pub fn env(mut self, env: Env) -> Self {
+    pub fn env(mut self, env: EvmEnv<BlockT, TxT, HardforkT>) -> Self {
         self.env = env;
+        self
+    }
+
+    /// Set the chain context
+    #[inline]
+    pub fn chain_context(mut self, chain_context: ChainContextT) -> Self {
+        self.chain_context = chain_context;
         self
     }
 
@@ -75,35 +108,40 @@ impl ExecutorBuilder {
     /// See [`Executor::gas_limit`] for more info on why you might want to set
     /// this.
     #[inline]
-    pub fn gas_limit(mut self, gas_limit: U256) -> Self {
+    pub fn gas_limit(mut self, gas_limit: u64) -> Self {
         self.gas_limit = Some(gas_limit);
         self
     }
 
     /// Sets the EVM spec to use
     #[inline]
-    pub fn spec(mut self, spec: SpecId) -> Self {
+    pub fn spec(mut self, spec: HardforkT) -> Self {
         self.spec_id = spec;
         self
     }
 
     /// Builds the executor as configured.
-    pub fn build(self) -> Executor {
+    pub fn build(self) -> Executor<BlockT, TxT, HardforkT, ChainContextT> {
         let Self {
             mut stack,
             gas_limit,
             spec_id,
             fork,
-            env,
+            mut env,
+            chain_context,
         } = self;
+
         stack.block = Some(env.block.clone());
-        stack.gas_price = Some(env.tx.gas_price);
-        let gas_limit = gas_limit.unwrap_or(env.block.gas_limit);
+        stack.gas_price = Some(env.tx.gas_price());
+
+        env.cfg.spec = spec_id;
+
+        let gas_limit = gas_limit.unwrap_or(env.block.gas_limit());
+
         Executor::new(
             Backend::spawn(fork),
-            EvmEnv < BlockT,
-            TxT,
-            HardforkT > ::new_with_spec_id(Box::new(env), spec_id),
+            env,
+            chain_context,
             stack.build(),
             gas_limit,
         )
