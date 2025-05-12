@@ -416,7 +416,7 @@ impl<
         self.inspector.cheatcodes = cheatcodes;
 
         // Persist the changed environment.
-        self.inspector.set_env(&result.env);
+        self.inspector.set_env(result.env.clone());
     }
 
     /// Deploys a contract using the given `env` and commits the new state to
@@ -983,7 +983,6 @@ fn convert_executed_result<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT:
         traces,
         coverage,
         cheatcodes,
-        chisel_state,
     } = inspector.collect();
 
     Ok(RawCallResult {
