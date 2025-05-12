@@ -3,23 +3,22 @@ use std::sync::Arc;
 use alloy_primitives::{map::AddressHashMap, Address, Bytes, Log, U256};
 use foundry_evm_core::{
     backend::{update_state, CheatcodeBackend},
-    InspectorTr,
+    evm_context::EvmEnv,
 };
 use foundry_evm_coverage::HitMaps;
 use foundry_evm_traces::SparsedTraceArena;
 use revm::{
-    inspectors::CustomPrintTracer,
+    context::{result::ExecutionResult, BlockEnv},
     interpreter::{
         CallInputs, CallOutcome, CallScheme, CreateInputs, CreateOutcome, Gas, InstructionResult,
         Interpreter, InterpreterResult,
     },
-    primitives::{BlockEnv, Env, EnvWithHandlerCfg, ExecutionResult, Output, TxKind},
     DatabaseCommit, EvmContext, Inspector,
 };
 
 use super::{
-    Cheatcodes, CheatsConfig, ChiselState, CoverageCollector, Fuzzer, LogCollector,
-    StackSnapshotType, TracingInspector, TracingInspectorConfig,
+    Cheatcodes, CheatsConfig, CoverageCollector, Fuzzer, LogCollector, StackSnapshotType,
+    TracingInspector, TracingInspectorConfig,
 };
 
 #[derive(Clone, Debug, Default)]
@@ -48,8 +47,6 @@ pub struct InspectorStackBuilder {
     /// Whether to print all opcode traces into the console. Useful for
     /// debugging the EVM.
     pub print: Option<bool>,
-    /// The chisel state inspector.
-    pub chisel_state: Option<usize>,
     /// Whether to enable call isolation.
     /// In isolation mode all top-level calls are executed as a separate
     /// transaction in a separate EVM context, enabling more precise gas
@@ -92,13 +89,6 @@ impl InspectorStackBuilder {
         self
     }
 
-    /// Set the Chisel inspector.
-    #[inline]
-    pub fn chisel_state(mut self, final_pc: usize) -> Self {
-        self.chisel_state = Some(final_pc);
-        self
-    }
-
     /// Set whether to collect logs.
     #[inline]
     pub fn logs(mut self, yes: bool) -> Self {
@@ -110,13 +100,6 @@ impl InspectorStackBuilder {
     #[inline]
     pub fn coverage(mut self, yes: bool) -> Self {
         self.coverage = Some(yes);
-        self
-    }
-
-    /// Set whether to enable the trace printer.
-    #[inline]
-    pub fn print(mut self, yes: bool) -> Self {
-        self.print = Some(yes);
         self
     }
 
@@ -149,8 +132,6 @@ impl InspectorStackBuilder {
             trace,
             logs,
             coverage,
-            print,
-            chisel_state,
             enable_isolation,
         } = self;
         let mut stack = InspectorStack::new();
@@ -162,19 +143,15 @@ impl InspectorStackBuilder {
         if let Some(fuzzer) = fuzzer {
             stack.set_fuzzer(fuzzer);
         }
-        if let Some(chisel_state) = chisel_state {
-            stack.set_chisel(chisel_state);
-        }
         stack.collect_coverage(coverage.unwrap_or(false));
         stack.collect_logs(logs.unwrap_or(true));
-        stack.print(print.unwrap_or(false));
         stack.tracing(trace.unwrap_or(false));
 
         stack.enable_isolation(enable_isolation);
 
         // environment, must come after all of the inspectors
         if let Some(block) = block {
-            stack.set_block(&block);
+            stack.set_block(block);
         }
         if let Some(gas_price) = gas_price {
             stack.set_gas_price(gas_price);
@@ -246,7 +223,6 @@ pub struct InspectorData {
     pub traces: Option<SparsedTraceArena>,
     pub coverage: Option<HitMaps>,
     pub cheatcodes: Option<Cheatcodes>,
-    pub chisel_state: Option<(Vec<U256>, Vec<u8>, InstructionResult)>,
 }
 
 /// Contains data about the state of outer/main EVM which created and invoked
@@ -276,11 +252,9 @@ pub struct InnerContextData {
 #[derive(Clone, Debug, Default)]
 pub struct InspectorStack {
     pub cheatcodes: Option<Cheatcodes>,
-    pub chisel_state: Option<ChiselState>,
     pub coverage: Option<CoverageCollector>,
     pub fuzzer: Option<Fuzzer>,
     pub log_collector: Option<LogCollector>,
-    pub printer: Option<CustomPrintTracer>,
     pub tracer: Option<TracingInspector>,
     pub enable_isolation: bool,
 
@@ -302,22 +276,22 @@ impl InspectorStack {
 
     /// Set variables from an environment for the relevant inspectors.
     #[inline]
-    pub fn set_env(&mut self, env: &Env) {
-        self.set_block(&env.block);
+    pub fn set_env(&mut self, env: EvmEnv<BlockT, TxT, HardforkT>) {
+        self.set_block(env.block.into());
         self.set_gas_price(env.tx.gas_price);
     }
 
     /// Sets the block for the relevant inspectors.
     #[inline]
-    pub fn set_block(&mut self, block: &BlockEnv) {
+    pub fn set_block(&mut self, block: BlockEnv) {
         if let Some(cheatcodes) = &mut self.cheatcodes {
-            cheatcodes.block = Some(block.clone());
+            cheatcodes.block = Some(block);
         }
     }
 
     /// Sets the gas price for the relevant inspectors.
     #[inline]
-    pub fn set_gas_price(&mut self, gas_price: U256) {
+    pub fn set_gas_price(&mut self, gas_price: u128) {
         if let Some(cheatcodes) = &mut self.cheatcodes {
             cheatcodes.gas_price = Some(gas_price);
         }
@@ -333,12 +307,6 @@ impl InspectorStack {
     #[inline]
     pub fn set_fuzzer(&mut self, fuzzer: Fuzzer) {
         self.fuzzer = Some(fuzzer);
-    }
-
-    /// Set the Chisel inspector.
-    #[inline]
-    pub fn set_chisel(&mut self, final_pc: usize) {
-        self.chisel_state = Some(ChiselState::new(final_pc));
     }
 
     /// Set whether to enable the coverage collector.
@@ -357,12 +325,6 @@ impl InspectorStack {
     #[inline]
     pub fn collect_logs(&mut self, yes: bool) {
         self.log_collector = yes.then(Default::default);
-    }
-
-    /// Set whether to enable the trace printer.
-    #[inline]
-    pub fn print(&mut self, yes: bool) {
-        self.printer = yes.then(Default::default);
     }
 
     /// Set whether to enable the tracer.
@@ -432,7 +394,6 @@ impl InspectorStack {
                 .coverage
                 .map(foundry_evm_coverage::CoverageCollector::finish),
             cheatcodes: self.cheatcodes,
-            chisel_state: self.chisel_state.and_then(|state| state.state),
         }
     }
 
@@ -444,12 +405,7 @@ impl InspectorStack {
     ) -> CallOutcome {
         let result = outcome.result.result;
         call_inspectors_adjust_depth!(
-            [
-                &mut self.fuzzer,
-                &mut self.tracer,
-                &mut self.cheatcodes,
-                &mut self.printer,
-            ],
+            [&mut self.fuzzer, &mut self.tracer, &mut self.cheatcodes,],
             |inspector| {
                 let new_outcome = inspector.call_end(ecx, inputs, outcome.clone());
 
@@ -644,12 +600,7 @@ impl<DB: CheatcodeBackend + DatabaseCommit> Inspector<&mut DB> for InspectorStac
     fn initialize_interp(&mut self, interpreter: &mut Interpreter, ecx: &mut EvmContext<&mut DB>) {
         call_inspectors_adjust_depth!(
             #[no_ret]
-            [
-                &mut self.coverage,
-                &mut self.tracer,
-                &mut self.cheatcodes,
-                &mut self.printer
-            ],
+            [&mut self.coverage, &mut self.tracer, &mut self.cheatcodes,],
             |inspector| inspector.initialize_interp(interpreter, ecx),
             self,
             ecx
@@ -664,7 +615,6 @@ impl<DB: CheatcodeBackend + DatabaseCommit> Inspector<&mut DB> for InspectorStac
                 &mut self.tracer,
                 &mut self.coverage,
                 &mut self.cheatcodes,
-                &mut self.printer,
             ],
             |inspector| inspector.step(interpreter, ecx),
             self,
@@ -675,12 +625,7 @@ impl<DB: CheatcodeBackend + DatabaseCommit> Inspector<&mut DB> for InspectorStac
     fn step_end(&mut self, interpreter: &mut Interpreter, ecx: &mut EvmContext<&mut DB>) {
         call_inspectors_adjust_depth!(
             #[no_ret]
-            [
-                &mut self.tracer,
-                &mut self.cheatcodes,
-                &mut self.chisel_state,
-                &mut self.printer
-            ],
+            [&mut self.tracer, &mut self.cheatcodes],
             |inspector| inspector.step_end(interpreter, ecx),
             self,
             ecx
@@ -694,7 +639,6 @@ impl<DB: CheatcodeBackend + DatabaseCommit> Inspector<&mut DB> for InspectorStac
                 &mut self.tracer,
                 &mut self.log_collector,
                 &mut self.cheatcodes,
-                &mut self.printer
             ],
             |inspector| inspector.log(interpreter, ecx, log),
             self,
@@ -718,7 +662,6 @@ impl<DB: CheatcodeBackend + DatabaseCommit> Inspector<&mut DB> for InspectorStac
                 &mut self.tracer,
                 &mut self.log_collector,
                 &mut self.cheatcodes,
-                &mut self.printer,
             ],
             |inspector| {
                 let mut out = None;
@@ -827,7 +770,7 @@ impl<DB: CheatcodeBackend + DatabaseCommit> Inspector<&mut DB> for InspectorStac
         let result = outcome.result.result;
 
         call_inspectors_adjust_depth!(
-            [&mut self.tracer, &mut self.cheatcodes, &mut self.printer],
+            [&mut self.tracer, &mut self.cheatcodes],
             |inspector| {
                 let new_outcome = inspector.create_end(ecx, call, outcome.clone());
 
@@ -846,29 +789,8 @@ impl<DB: CheatcodeBackend + DatabaseCommit> Inspector<&mut DB> for InspectorStac
     }
 
     fn selfdestruct(&mut self, contract: Address, target: Address, value: U256) {
-        call_inspectors!([&mut self.tracer, &mut self.printer], |inspector| {
+        call_inspectors!([&mut self.tracer], |inspector| {
             Inspector::<DB>::selfdestruct(inspector, contract, target, value);
         });
-    }
-}
-
-impl<DB: CheatcodeBackend + DatabaseCommit> InspectorTr<&mut DB> for InspectorStack {
-    fn should_use_create2_factory(
-        &mut self,
-        ecx: &mut EvmContext<&mut DB>,
-        inputs: &mut CreateInputs,
-    ) -> bool {
-        call_inspectors_adjust_depth!(
-            [&mut self.cheatcodes],
-            |inspector| {
-                inspector
-                    .should_use_create2_factory(ecx, inputs)
-                    .then_some(true)
-            },
-            self,
-            ecx
-        );
-
-        false
     }
 }

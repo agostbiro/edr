@@ -1,4 +1,4 @@
-use alloy_primitives::{Address, B256, U256};
+use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
 use revm::{
     context::{BlockEnv, CfgEnv, Evm, JournalInner, TxEnv},
     context_interface::{Block, JournalTr, Transaction},
@@ -82,7 +82,12 @@ pub trait TransactionEnvMut {
     fn set_blob_versioned_hashes(&mut self, blob_hashes: Vec<B256>);
     fn set_caller(&mut self, caller: Address);
     fn set_chain_id(&mut self, chain_id: Option<u64>);
+    fn set_gas_limit(&mut self, gas_limit: u64);
     fn set_gas_price(&mut self, gas_price: u128);
+    fn set_gas_priority_fee(&mut self, gas_priority_fee: Option<u128>);
+    fn set_kind(&mut self, kind: TxKind);
+    fn set_input(&mut self, input: Bytes);
+    fn set_value(&mut self, value: U256);
 }
 
 impl TransactionEnvMut for TxEnv {
@@ -98,8 +103,28 @@ impl TransactionEnvMut for TxEnv {
         self.chain_id = chain_id;
     }
 
+    fn set_gas_limit(&mut self, gas_limit: u64) {
+        self.gas_limit = gas_limit;
+    }
+
     fn set_gas_price(&mut self, gas_price: u128) {
         self.gas_price = gas_price;
+    }
+
+    fn set_gas_priority_fee(&mut self, gas_priority_fee: Option<u128>) {
+        self.gas_priority_fee = gas_priority_fee;
+    }
+
+    fn set_kind(&mut self, kind: TxKind) {
+        self.kind = kind;
+    }
+
+    fn set_input(&mut self, input: Bytes) {
+        self.data = input;
+    }
+
+    fn set_value(&mut self, value: U256) {
+        self.value = value;
     }
 }
 
@@ -109,6 +134,7 @@ pub trait BlockEnvMut {
     fn set_block_number(&mut self, block_number: u64);
     fn set_blob_excess_gas_and_price(&mut self, excess_blob_gas: u64, is_prague: bool);
     fn set_difficulty(&mut self, difficulty: U256);
+    fn set_gas_limit(&mut self, gas_limit: u64);
     fn set_prevrandao(&mut self, prevrandao: B256);
     fn set_timestamp(&mut self, timestamp: u64);
 }
@@ -140,6 +166,10 @@ impl BlockEnvMut for BlockEnv {
 
     fn set_timestamp(&mut self, timestamp: u64) {
         self.timestamp = timestamp;
+    }
+
+    fn set_gas_limit(&mut self, gas_limit: u64) {
+        self.gas_limit = gas_limit;
     }
 }
 
@@ -264,8 +294,11 @@ where
     }
 }
 
-impl<BlockT, TxT, HardforkT: HardforkTr> EvmEnv<BlockT, TxT, HardforkT> {
-    pub fn new_with_spec_id(mut env: EvmEnv<BlockT, TxT, HardforkT>, spec_id: HardforkT) -> Self {
+impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
+    EvmEnv<BlockT, TxT, HardforkT>
+{
+    pub fn new_with_spec_id(spec_id: HardforkT) -> Self {
+        let mut env = Self::default();
         env.cfg.spec = spec_id;
         env
     }

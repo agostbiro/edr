@@ -2,7 +2,7 @@
 
 use std::{fmt::Debug, sync::Arc};
 
-use edr_eth::{spec::HaltReasonTrait, Bytes};
+use edr_eth::{l1::HaltReason, spec::HaltReasonTrait, Bytes};
 use parking_lot::RwLock;
 
 use super::{
@@ -29,7 +29,7 @@ pub enum ContractDecoderError {
 }
 
 /// Provides trace decoding
-pub trait NestedTraceDecoder<HaltReasonT: HaltReasonTrait> {
+pub trait NestedTraceDecoder<HaltReasonT: HaltReasonTrait = HaltReason> {
     /// Enriches the [`NestedTrace`] with the resolved [`ContractMetadata`].
     fn try_to_decode_nested_trace(
         &self,

@@ -982,9 +982,10 @@ impl<
     /// Returns the `EvmEnv` with the current `spec_id` set.
     fn env_with_handler_cfg(
         &self,
-        env: EvmEnv<BlockT, TxT, HardforkT>,
+        mut env: EvmEnv<BlockT, TxT, HardforkT>,
     ) -> EvmEnv<BlockT, TxT, HardforkT> {
-        EvmEnv::new_with_spec_id(env, self.inner.spec_id)
+        env.cfg.spec = self.inner.spec_id;
+        env
     }
 
     /// Executes the configured test call of the `env` without committing state

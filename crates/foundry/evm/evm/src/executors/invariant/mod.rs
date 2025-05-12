@@ -917,7 +917,7 @@ impl<'a> InvariantExecutor<'a> {
 /// flood the dictionary with randomly generated addresses.
 fn collect_data(
     invariant_test: &InvariantTest,
-    state_changeset: &mut HashMap<Address, revm::primitives::Account>,
+    state_changeset: &mut HashMap<Address, revm::state::Account>,
     tx: &BasicTxDetails,
     call_result: &RawCallResult,
     run_depth: u32,

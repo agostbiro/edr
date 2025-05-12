@@ -205,7 +205,7 @@ fn convert_instruction_result_to_exit_code(
 }
 
 fn is_calllike_op(step: &CallTraceStep) -> bool {
-    use revm::interpreter::opcode;
+    use revm::bytecode::opcode;
 
     matches!(
         step.op.get(),

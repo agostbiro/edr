@@ -6,13 +6,12 @@ use foundry_evm_core::{
         patch_hh_console_selector, Console, HardhatConsole,
     },
     constants::HARDHAT_CONSOLE_ADDRESS,
-    InspectorTr,
 };
 use revm::{
     interpreter::{
         CallInputs, CallOutcome, Gas, InstructionResult, Interpreter, InterpreterResult,
     },
-    Database, EvmContext, Inspector,
+    Database, Inspector,
 };
 
 use crate::inspectors::error_ext::ErrorExt;

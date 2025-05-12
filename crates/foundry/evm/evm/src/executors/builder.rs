@@ -1,6 +1,5 @@
 use alloy_primitives::U256;
 use foundry_evm_core::{backend::Backend, fork::CreateFork};
-use revm::primitives::{Env, EnvWithHandlerCfg, SpecId};
 
 use crate::{executors::Executor, inspectors::InspectorStackBuilder};
 
@@ -102,7 +101,9 @@ impl ExecutorBuilder {
         let gas_limit = gas_limit.unwrap_or(env.block.gas_limit);
         Executor::new(
             Backend::spawn(fork),
-            EnvWithHandlerCfg::new_with_spec_id(Box::new(env), spec_id),
+            EvmEnv < BlockT,
+            TxT,
+            HardforkT > ::new_with_spec_id(Box::new(env), spec_id),
             stack.build(),
             gas_limit,
         )
