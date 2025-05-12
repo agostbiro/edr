@@ -5,13 +5,16 @@ use foundry_evm_core::{
         fmt::{ConsoleFmt, FormatSpec},
         patch_hh_console_selector, Console, HardhatConsole,
     },
+    backend::CheatcodeBackend,
     constants::HARDHAT_CONSOLE_ADDRESS,
+    evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr},
 };
 use revm::{
+    context::{CfgEnv, Context as EvmContext},
     interpreter::{
         CallInputs, CallOutcome, Gas, InstructionResult, Interpreter, InterpreterResult,
     },
-    Database, Inspector,
+    Database, Inspector, Journal,
 };
 
 use crate::inspectors::error_ext::ErrorExt;
@@ -44,15 +47,44 @@ impl LogCollector {
     }
 }
 
-impl<DB: Database> Inspector<DB> for LogCollector {
-    fn log(&mut self, _interp: &mut Interpreter, _context: &mut EvmContext<DB>, log: &Log) {
+impl<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+    >
+    Inspector<
+        EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+    > for LogCollector
+{
+    fn log(
+        &mut self,
+        _interp: &mut Interpreter,
+        _context: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
+        log: &Log,
+    ) {
         self.logs.push(log.clone());
     }
 
     #[inline]
     fn call(
         &mut self,
-        _context: &mut EvmContext<DB>,
+        _context: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
         inputs: &mut CallInputs,
     ) -> Option<CallOutcome> {
         if inputs.target_address == HARDHAT_CONSOLE_ADDRESS {

@@ -45,9 +45,6 @@ pub struct InspectorStackBuilder {
     pub logs: Option<bool>,
     /// Whether coverage info should be collected.
     pub coverage: Option<bool>,
-    /// Whether to print all opcode traces into the console. Useful for
-    /// debugging the EVM.
-    pub print: Option<bool>,
     /// Whether to enable call isolation.
     /// In isolation mode all top-level calls are executed as a separate
     /// transaction in a separate EVM context, enabling more precise gas
