@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use alloy_primitives::{keccak256, Address, B256, U256};
 use alloy_sol_types::SolValue;
+use foundry_evm_core::evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr};
 use revm::{
     bytecode::opcode,
     interpreter::{
@@ -59,7 +60,7 @@ impl MappingSlots {
 
 impl_is_pure_true!(startMappingRecordingCall);
 impl Cheatcode for startMappingRecordingCall {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
         let Self {} = self;
         if state.mapping_slots.is_none() {
             state.mapping_slots = Some(HashMap::default());
@@ -70,7 +71,7 @@ impl Cheatcode for startMappingRecordingCall {
 
 impl_is_pure_true!(stopMappingRecordingCall);
 impl Cheatcode for stopMappingRecordingCall {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
         let Self {} = self;
         state.mapping_slots = None;
         Ok(Vec::default())
@@ -79,7 +80,7 @@ impl Cheatcode for stopMappingRecordingCall {
 
 impl_is_pure_true!(getMappingLengthCall);
 impl Cheatcode for getMappingLengthCall {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
         let Self {
             target,
             mappingSlot,
@@ -91,7 +92,7 @@ impl Cheatcode for getMappingLengthCall {
 
 impl_is_pure_true!(getMappingSlotAtCall);
 impl Cheatcode for getMappingSlotAtCall {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
         let Self {
             target,
             mappingSlot,
@@ -107,7 +108,7 @@ impl Cheatcode for getMappingSlotAtCall {
 
 impl_is_pure_true!(getMappingKeyAndParentOfCall);
 impl Cheatcode for getMappingKeyAndParentOfCall {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
         let Self {
             target,
             elementSlot: slot,
@@ -130,12 +131,15 @@ impl Cheatcode for getMappingKeyAndParentOfCall {
     }
 }
 
-fn mapping_slot<'a>(state: &'a Cheatcodes, target: &'a Address) -> Option<&'a MappingSlots> {
+fn mapping_slot<'a, BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    state: &'a Cheatcodes<BlockT, TxT, HardforkT>,
+    target: &'a Address
+) -> Option<&'a MappingSlots> {
     state.mapping_slots.as_ref()?.get(target)
 }
 
-fn slot_child<'a>(
-    state: &'a Cheatcodes,
+fn slot_child<'a, BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    state: &'a Cheatcodes<BlockT, TxT, HardforkT>,
     target: &'a Address,
     slot: &'a B256,
 ) -> Option<&'a Vec<B256>> {

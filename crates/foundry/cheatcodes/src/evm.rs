@@ -12,12 +12,14 @@ use edr_common::fs::{read_json_file, write_json_file};
 use foundry_evm_core::{
     backend::{CheatcodeBackend, RevertSnapshotAction},
     constants::{CALLER, CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS, TEST_CONTRACT_ADDRESS},
+    evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr},
 };
 use revm::{
     bytecode::Bytecode,
-    context::{Block, JournalTr},
+    context::{CfgEnv, JournalTr},
     primitives::{hardfork::SpecId, KECCAK_EMPTY},
     state::Account,
+    Journal,
 };
 use spec::Vm::signCall;
 
@@ -63,7 +65,7 @@ pub struct DealRecord {
 
 impl_is_pure_true!(addrCall);
 impl Cheatcode for addrCall {
-    fn apply(&self, _state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, _state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
         let Self { privateKey } = self;
         let wallet = super::utils::parse_wallet(privateKey)?;
         Ok(wallet.address().abi_encode())
@@ -72,7 +74,13 @@ impl Cheatcode for addrCall {
 
 impl_is_pure_true!(getNonceCall);
 impl Cheatcode for getNonceCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self { account } = self;
         get_nonce(ccx, account)
     }
@@ -80,18 +88,30 @@ impl Cheatcode for getNonceCall {
 
 impl_is_pure_true!(loadCall);
 impl Cheatcode for loadCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self { target, slot } = *self;
         ensure_not_precompile!(&target, ccx);
-        ccx.ecx.load_account(target)?;
-        let val = ccx.ecx.sload(target, slot.into())?;
+        ccx.ecx.journaled_state.load_account(target)?;
+        let val = ccx.ecx.journaled_state.sload(target, slot.into())?;
         Ok(val.abi_encode())
     }
 }
 
 impl_is_pure_false!(loadAllocsCall);
 impl Cheatcode for loadAllocsCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self { pathToAllocsJson } = self;
 
         let path = Path::new(pathToAllocsJson);
@@ -121,7 +141,13 @@ impl Cheatcode for loadAllocsCall {
 
 impl_is_pure_false!(dumpStateCall);
 impl Cheatcode for dumpStateCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self { pathToStateJson } = self;
         let path = Path::new(pathToStateJson);
 
@@ -168,7 +194,13 @@ impl Cheatcode for dumpStateCall {
 
 impl_is_pure_true!(signCall);
 impl Cheatcode for signCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, _: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, _: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self { privateKey, digest } = self;
         super::utils::sign(privateKey, digest)
     }
@@ -176,15 +208,21 @@ impl Cheatcode for signCall {
 
 impl_is_pure_true!(signP256Call);
 impl Cheatcode for signP256Call {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self { privateKey, digest } = self;
-        super::utils::sign_p256(privateKey, digest, ccx.state)
+        super::utils::sign_p256(privateKey, digest)
     }
 }
 
 impl_is_pure_true!(recordCall);
 impl Cheatcode for recordCall {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
         let Self {} = self;
         state.accesses = Some(RecordAccess::default());
         Ok(Vec::default())
@@ -193,7 +231,7 @@ impl Cheatcode for recordCall {
 
 impl_is_pure_true!(accessesCall);
 impl Cheatcode for accessesCall {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
         let Self { target } = *self;
         let result = state
             .accesses
@@ -211,7 +249,7 @@ impl Cheatcode for accessesCall {
 
 impl_is_pure_true!(recordLogsCall);
 impl Cheatcode for recordLogsCall {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
         let Self {} = self;
         state.recorded_logs = Some(Vec::default());
         Ok(Vec::default())
@@ -220,7 +258,7 @@ impl Cheatcode for recordLogsCall {
 
 impl_is_pure_true!(getRecordedLogsCall);
 impl Cheatcode for getRecordedLogsCall {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
         let Self {} = self;
         Ok(state
             .recorded_logs
@@ -232,7 +270,7 @@ impl Cheatcode for getRecordedLogsCall {
 
 impl_is_pure_true!(pauseGasMeteringCall);
 impl Cheatcode for pauseGasMeteringCall {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
         let Self {} = self;
         if state.gas_metering.is_none() {
             state.gas_metering = Some(None);
@@ -243,7 +281,7 @@ impl Cheatcode for pauseGasMeteringCall {
 
 impl_is_pure_true!(resumeGasMeteringCall);
 impl Cheatcode for resumeGasMeteringCall {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
         let Self {} = self;
         state.gas_metering = None;
         Ok(Vec::default())
@@ -252,7 +290,7 @@ impl Cheatcode for resumeGasMeteringCall {
 
 impl_is_pure_true!(lastCallGasCall);
 impl Cheatcode for lastCallGasCall {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
         let Self {} = self;
         ensure!(
             state.last_call_gas.is_some(),
@@ -269,20 +307,32 @@ impl Cheatcode for lastCallGasCall {
 
 impl_is_pure_true!(chainIdCall);
 impl Cheatcode for chainIdCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self { newChainId } = self;
         ensure!(
             *newChainId <= U256::from(u64::MAX),
             "chain ID must be less than 2^64 - 1"
         );
-        ccx.ecx.env.cfg.chain_id = newChainId.to();
+        ccx.ecx.cfg.chain_id = newChainId.to();
         Ok(Vec::default())
     }
 }
 
 impl_is_pure_true!(coinbaseCall);
 impl Cheatcode for coinbaseCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self { newCoinbase } = self;
         ccx.ecx.env.block.coinbase = *newCoinbase;
         Ok(Vec::default())
@@ -291,10 +341,16 @@ impl Cheatcode for coinbaseCall {
 
 impl_is_pure_true!(difficultyCall);
 impl Cheatcode for difficultyCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self { newDifficulty } = self;
         ensure!(
-            ccx.ecx.spec_id() < SpecId::MERGE,
+            ccx.ecx.cfg.spec.into() < SpecId::MERGE,
             "`difficulty` is not supported after the Paris hard fork, use `prevrandao` instead; \
              see EIP-4399: https://eips.ethereum.org/EIPS/eip-4399"
         );
@@ -305,7 +361,13 @@ impl Cheatcode for difficultyCall {
 
 impl_is_pure_true!(feeCall);
 impl Cheatcode for feeCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self { newBasefee } = self;
         ccx.ecx.env.block.basefee = *newBasefee;
         Ok(Vec::default())
@@ -314,10 +376,16 @@ impl Cheatcode for feeCall {
 
 impl_is_pure_true!(prevrandao_0Call);
 impl Cheatcode for prevrandao_0Call {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self { newPrevrandao } = self;
         ensure!(
-            ccx.ecx.spec_id() >= SpecId::MERGE,
+            ccx.ecx.cfg.spec.into() >= SpecId::MERGE,
             "`prevrandao` is not supported before the Paris hard fork, use `difficulty` instead; \
              see EIP-4399: https://eips.ethereum.org/EIPS/eip-4399"
         );
@@ -328,10 +396,16 @@ impl Cheatcode for prevrandao_0Call {
 
 impl_is_pure_true!(prevrandao_1Call);
 impl Cheatcode for prevrandao_1Call {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self { newPrevrandao } = self;
         ensure!(
-            ccx.ecx.spec_id() >= SpecId::MERGE,
+            ccx.ecx.cfg.spec.into() >= SpecId::MERGE,
             "`prevrandao` is not supported before the Paris hard fork, use `difficulty` instead; \
              see EIP-4399: https://eips.ethereum.org/EIPS/eip-4399"
         );
@@ -342,34 +416,53 @@ impl Cheatcode for prevrandao_1Call {
 
 impl_is_pure_true!(blobhashesCall);
 impl Cheatcode for blobhashesCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self { hashes } = self;
         ensure!(
-            ccx.ecx.spec_id() >= SpecId::CANCUN,
+            ccx.ecx.cfg.spec.into() >= SpecId::CANCUN,
             "`blobhash` is not supported before the Cancun hard fork; \
              see EIP-4844: https://eips.ethereum.org/EIPS/eip-4844"
         );
         ccx.ecx.env.tx.blob_hashes.clone_from(hashes);
+        ccx.ecx.tx.blob_hashes.clone_from(hashes);
         Ok(Vec::default())
     }
 }
 
 impl_is_pure_true!(getBlobhashesCall);
 impl Cheatcode for getBlobhashesCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self {} = self;
         ensure!(
-            ccx.ecx.spec_id() >= SpecId::CANCUN,
+            ccx.ecx.cfg.spec.into() >= SpecId::CANCUN,
             "`blobhash` is not supported before the Cancun hard fork; \
              see EIP-4844: https://eips.ethereum.org/EIPS/eip-4844"
         );
-        Ok(ccx.ecx.env.tx.blob_hashes.clone().abi_encode())
+        Ok(ccx.ecx.tx.blob_hashes.clone().abi_encode())
     }
 }
 
 impl_is_pure_true!(rollCall);
 impl Cheatcode for rollCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self { newHeight } = self;
         ccx.ecx.env.block.number = *newHeight;
         Ok(Vec::default())
@@ -378,7 +471,13 @@ impl Cheatcode for rollCall {
 
 impl_is_pure_true!(getBlockNumberCall);
 impl Cheatcode for getBlockNumberCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self {} = self;
         Ok(ccx.ecx.env.block.number.abi_encode())
     }
@@ -386,7 +485,13 @@ impl Cheatcode for getBlockNumberCall {
 
 impl_is_pure_true!(txGasPriceCall);
 impl Cheatcode for txGasPriceCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self { newGasPrice } = self;
         ccx.ecx.env.tx.gas_price = *newGasPrice;
         Ok(Vec::default())
@@ -395,7 +500,13 @@ impl Cheatcode for txGasPriceCall {
 
 impl_is_pure_true!(warpCall);
 impl Cheatcode for warpCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self { newTimestamp } = self;
         ccx.ecx.env.block.timestamp = *newTimestamp;
         Ok(Vec::default())
@@ -404,18 +515,31 @@ impl Cheatcode for warpCall {
 
 impl_is_pure_true!(getBlockTimestampCall);
 impl Cheatcode for getBlockTimestampCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self {} = self;
         Ok(ccx.ecx.env.block.timestamp.abi_encode())
+        Ok(ccx.ecx.block.timestamp().abi_encode())
     }
 }
 
 impl_is_pure_true!(blobBaseFeeCall);
 impl Cheatcode for blobBaseFeeCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self { newBlobBaseFee } = self;
         ensure!(
-            ccx.ecx.spec_id() >= SpecId::CANCUN,
+            ccx.ecx.cfg.spec.into() >= SpecId::CANCUN,
             "`blobBaseFee` is not supported before the Cancun hard fork; \
              see EIP-4844: https://eips.ethereum.org/EIPS/eip-4844"
         );
@@ -429,7 +553,13 @@ impl Cheatcode for blobBaseFeeCall {
 
 impl_is_pure_true!(getBlobBaseFeeCall);
 impl Cheatcode for getBlobBaseFeeCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self {} = self;
         Ok(ccx
             .ecx
@@ -443,7 +573,13 @@ impl Cheatcode for getBlobBaseFeeCall {
 
 impl_is_pure_true!(dealCall);
 impl Cheatcode for dealCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self {
             account: address,
             newBalance: new_balance,
@@ -462,13 +598,19 @@ impl Cheatcode for dealCall {
 
 impl_is_pure_true!(etchCall);
 impl Cheatcode for etchCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self {
             target,
             newRuntimeBytecode,
         } = self;
         ensure_not_precompile!(target, ccx);
-        ccx.ecx.load_account(*target)?;
+        ccx.ecx.journaled_state.load_account(*target)?;
         let bytecode = Bytecode::new_raw(Bytes::copy_from_slice(newRuntimeBytecode));
         ccx.ecx.journaled_state.set_code(*target, bytecode);
         Ok(Vec::default())
@@ -477,7 +619,13 @@ impl Cheatcode for etchCall {
 
 impl_is_pure_true!(resetNonceCall);
 impl Cheatcode for resetNonceCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self { account } = self;
         let account = journaled_account(ccx.ecx, *account)?;
         // Per EIP-161, EOA nonces start at 0, but contract nonces
@@ -493,7 +641,13 @@ impl Cheatcode for resetNonceCall {
 
 impl_is_pure_true!(setNonceCall);
 impl Cheatcode for setNonceCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self { account, newNonce } = *self;
         let account = journaled_account(ccx.ecx, account)?;
         // nonce must increment only
@@ -510,7 +664,13 @@ impl Cheatcode for setNonceCall {
 
 impl_is_pure_true!(setNonceUnsafeCall);
 impl Cheatcode for setNonceUnsafeCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self { account, newNonce } = *self;
         let account = journaled_account(ccx.ecx, account)?;
         account.info.nonce = newNonce;
@@ -520,7 +680,13 @@ impl Cheatcode for setNonceUnsafeCall {
 
 impl_is_pure_true!(storeCall);
 impl Cheatcode for storeCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self {
             target,
             slot,
@@ -529,14 +695,20 @@ impl Cheatcode for storeCall {
         ensure_not_precompile!(&target, ccx);
         // ensure the account is touched
         let _ = journaled_account(ccx.ecx, target)?;
-        ccx.ecx.sstore(target, slot.into(), value.into())?;
+        ccx.ecx.journaled_state.sstore(target, slot.into(), value.into())?;
         Ok(Vec::default())
     }
 }
 
 impl_is_pure_true!(coolCall);
 impl Cheatcode for coolCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self { target } = self;
         if let Some(account) = ccx.ecx.journaled_state.state.get_mut(target) {
             account.unmark_touch();
@@ -548,15 +720,27 @@ impl Cheatcode for coolCall {
 
 impl_is_pure_true!(readCallersCall);
 impl Cheatcode for readCallersCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self {} = self;
-        read_callers(ccx.state, &ccx.ecx.env.tx.caller)
+        read_callers(ccx.state, &ccx.ecx.tx.caller())
     }
 }
 
 impl_is_pure_true!(snapshotCall);
 impl Cheatcode for snapshotCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self {} = self;
         Ok(ccx
             .ecx
@@ -568,7 +752,13 @@ impl Cheatcode for snapshotCall {
 
 impl_is_pure_true!(revertToCall);
 impl Cheatcode for revertToCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self { snapshotId } = self;
         let result = if let Some(journaled_state) = ccx.ecx.db.revert(
             *snapshotId,
@@ -589,7 +779,13 @@ impl Cheatcode for revertToCall {
 
 impl_is_pure_true!(revertToAndDeleteCall);
 impl Cheatcode for revertToAndDeleteCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self { snapshotId } = self;
         let result = if let Some(journaled_state) = ccx.ecx.db.revert(
             *snapshotId,
@@ -610,7 +806,13 @@ impl Cheatcode for revertToAndDeleteCall {
 
 impl_is_pure_true!(deleteSnapshotCall);
 impl Cheatcode for deleteSnapshotCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self { snapshotId } = self;
         let result = ccx.ecx.db.delete_snapshot(*snapshotId);
         Ok(result.abi_encode())
@@ -619,7 +821,13 @@ impl Cheatcode for deleteSnapshotCall {
 
 impl_is_pure_true!(deleteSnapshotsCall);
 impl Cheatcode for deleteSnapshotsCall {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self {} = self;
         ccx.ecx.db.delete_snapshots();
         Ok(Vec::default())
@@ -628,7 +836,7 @@ impl Cheatcode for deleteSnapshotsCall {
 
 impl_is_pure_true!(startStateDiffRecordingCall);
 impl Cheatcode for startStateDiffRecordingCall {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
         let Self {} = self;
         state.recorded_account_diffs_stack = Some(Vec::default());
         Ok(Vec::default())
@@ -637,20 +845,26 @@ impl Cheatcode for startStateDiffRecordingCall {
 
 impl_is_pure_true!(stopAndReturnStateDiffCall);
 impl Cheatcode for stopAndReturnStateDiffCall {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
         let Self {} = self;
         get_state_diff(state)
     }
 }
 
-pub(super) fn get_nonce<DB: CheatcodeBackend>(
-    ccx: &mut CheatsCtxt<DB>,
+pub(super) fn get_nonce<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+    DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+>(
+    ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
     address: &Address,
 ) -> Result {
     let account = ccx
         .ecx
         .journaled_state
-        .load_account(*address, &mut ccx.ecx.db)?;
+        .load_account(*address)?;
     Ok(account.info.nonce.abi_encode())
 }
 
@@ -673,7 +887,10 @@ pub(super) fn get_nonce<DB: CheatcodeBackend>(
 ///     - `caller_mode` will be equal to [`CallerMode::None`],
 ///     - `msg.sender` and `tx.origin` will be equal to the default sender
 ///       address.
-fn read_callers(state: &Cheatcodes, default_sender: &Address) -> Result {
+fn read_callers<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    state: &Cheatcodes<BlockT, TxT, HardforkT>,
+    default_sender: &Address
+) -> Result {
     let Cheatcodes { prank, .. } = state;
 
     let mut mode = CallerMode::None;
@@ -695,12 +912,18 @@ fn read_callers(state: &Cheatcodes, default_sender: &Address) -> Result {
 }
 
 /// Ensures the `Account` is loaded and touched.
-pub(super) fn journaled_account<DB: CheatcodeBackend>(
-    ecx: &mut InnerEvmContext<DB>,
+pub(super) fn journaled_account<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+    DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+>(
+    ecx: &mut revm::context::Context<BlockT, TxT, CfgEnv<HardforkT>, DB, Journal<DB>, ChainContextT>,
     addr: Address,
 ) -> Result<&mut Account> {
-    ecx.load_account(addr)?;
-    ecx.journaled_state.touch(&addr);
+    ecx.journaled_state.load_account(addr)?;
+    ecx.journaled_state.touch(addr);
     Ok(ecx
         .journaled_state
         .state
@@ -716,7 +939,9 @@ pub(super) fn journaled_account<DB: CheatcodeBackend>(
 /// depth than `startStateDiffRecording`, multiple
 /// `Vec<RecordedAccountAccesses>` will be flattened, preserving the order of
 /// the accesses.
-fn get_state_diff(state: &mut Cheatcodes) -> Result {
+fn get_state_diff<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    state: &mut Cheatcodes<BlockT, TxT, HardforkT>
+) -> Result {
     let res = state
         .recorded_account_diffs_stack
         .replace(Vec::default())

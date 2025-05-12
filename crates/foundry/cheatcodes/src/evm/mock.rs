@@ -1,6 +1,7 @@
 use std::{cmp::Ordering, collections::HashMap};
 
 use alloy_primitives::{Address, Bytes, U256};
+use foundry_evm_core::evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr};
 use revm::{bytecode::Bytecode, context::JournalTr, interpreter::InstructionResult};
 
 use crate::{
@@ -51,7 +52,7 @@ impl Ord for MockCallDataContext {
 
 impl_is_pure_true!(clearMockedCallsCall);
 impl Cheatcode for clearMockedCallsCall {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
         let Self {} = self;
         state.mocked_calls = HashMap::default();
         Ok(Vec::default())
@@ -60,7 +61,13 @@ impl Cheatcode for clearMockedCallsCall {
 
 impl_is_pure_true!(mockCall_0Call);
 impl Cheatcode for mockCall_0Call {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self {
             callee,
             data,
@@ -94,7 +101,13 @@ impl Cheatcode for mockCall_0Call {
 
 impl_is_pure_true!(mockCall_1Call);
 impl Cheatcode for mockCall_1Call {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
         let Self {
             callee,
             msgValue,
@@ -116,7 +129,7 @@ impl Cheatcode for mockCall_1Call {
 
 impl_is_pure_true!(mockCallRevert_0Call);
 impl Cheatcode for mockCallRevert_0Call {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
         let Self {
             callee,
             data,
@@ -136,7 +149,7 @@ impl Cheatcode for mockCallRevert_0Call {
 
 impl_is_pure_true!(mockCallRevert_1Call);
 impl Cheatcode for mockCallRevert_1Call {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
         let Self {
             callee,
             msgValue,
@@ -156,8 +169,8 @@ impl Cheatcode for mockCallRevert_1Call {
 }
 
 #[allow(clippy::ptr_arg)] // Not public API, doesn't matter
-fn mock_call(
-    state: &mut Cheatcodes,
+fn mock_call<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
     callee: &Address,
     cdata: &Bytes,
     value: Option<&U256>,
