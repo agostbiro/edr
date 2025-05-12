@@ -319,20 +319,6 @@ impl<T: Into<BackendError>> From<EVMError<T>> for Error {
     }
 }
 
-// impl<T> From<revm::context_interface::NoJournaledStateFieldsResult<T>> for
-// Error {     #[inline]
-//     fn from(err: revm::context_interface::NoJournaledStateFieldsResult<T>) ->
-// Self {         Self::display(format!("State error: {:?}", err))
-//     }
-// }
-//
-// impl<T> From<revm::context_interface::DatabaseResult<T>> for Error {
-//     #[inline]
-//     fn from(err: revm::context_interface::DatabaseResult<T>) -> Self {
-//         Self::display(format!("Database error: {:?}", err))
-//     }
-// }
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,6 +1,3 @@
-use foundry_evm_core::evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr};
-//! Implementations of [`Filesystem`](crate::Group::Filesystem) cheatcodes.
-
 use std::{
     collections::hash_map::Entry,
     io::{BufRead, BufReader, Write},
@@ -16,6 +13,7 @@ use alloy_primitives::{Bytes, U256};
 use alloy_sol_types::SolValue;
 use dialoguer::{Input, Password};
 use edr_common::fs;
+use foundry_evm_core::evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr};
 use semver::Version;
 use walkdir::WalkDir;
 
@@ -34,7 +32,10 @@ use crate::{
 
 impl_is_pure_false!(existsCall);
 impl Cheatcode for existsCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { path } = self;
         let path = state.config.ensure_path_allowed(path, FsAccessKind::Read)?;
         Ok(path.exists().abi_encode())
@@ -43,7 +44,10 @@ impl Cheatcode for existsCall {
 
 impl_is_pure_false!(fsMetadataCall);
 impl Cheatcode for fsMetadataCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { path } = self;
         let path = state.config.ensure_path_allowed(path, FsAccessKind::Read)?;
 
@@ -67,13 +71,16 @@ impl Cheatcode for fsMetadataCall {
             accessed: U256::from(accessed),
             created: U256::from(created),
         }
-            .abi_encode())
+        .abi_encode())
     }
 }
 
 impl_is_pure_false!(isDirCall);
 impl Cheatcode for isDirCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { path } = self;
         let path = state.config.ensure_path_allowed(path, FsAccessKind::Read)?;
         Ok(path.is_dir().abi_encode())
@@ -82,7 +89,10 @@ impl Cheatcode for isDirCall {
 
 impl_is_pure_false!(isFileCall);
 impl Cheatcode for isFileCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { path } = self;
         let path = state.config.ensure_path_allowed(path, FsAccessKind::Read)?;
         Ok(path.is_file().abi_encode())
@@ -91,7 +101,10 @@ impl Cheatcode for isFileCall {
 
 impl_is_pure_false!(projectRootCall);
 impl Cheatcode for projectRootCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {} = self;
         Ok(state.config.project_root.display().to_string().abi_encode())
     }
@@ -99,7 +112,10 @@ impl Cheatcode for projectRootCall {
 
 impl_is_pure_false!(unixTimeCall);
 impl Cheatcode for unixTimeCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, _state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {} = self;
         let difference = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -110,7 +126,10 @@ impl Cheatcode for unixTimeCall {
 
 impl_is_pure_false!(closeFileCall);
 impl Cheatcode for closeFileCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { path } = self;
         let path = state.config.ensure_path_allowed(path, FsAccessKind::Read)?;
 
@@ -122,7 +141,10 @@ impl Cheatcode for closeFileCall {
 
 impl_is_pure_false!(copyFileCall);
 impl Cheatcode for copyFileCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { from, to } = self;
         let from = state.config.ensure_path_allowed(from, FsAccessKind::Read)?;
         let to = state.config.ensure_path_allowed(to, FsAccessKind::Write)?;
@@ -135,7 +157,10 @@ impl Cheatcode for copyFileCall {
 
 impl_is_pure_false!(createDirCall);
 impl Cheatcode for createDirCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { path, recursive } = self;
         let path = state
             .config
@@ -151,7 +176,10 @@ impl Cheatcode for createDirCall {
 
 impl_is_pure_false!(readDir_0Call);
 impl Cheatcode for readDir_0Call {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { path } = self;
         read_dir(state, path.as_ref(), 1, false)
     }
@@ -159,7 +187,10 @@ impl Cheatcode for readDir_0Call {
 
 impl_is_pure_false!(readDir_1Call);
 impl Cheatcode for readDir_1Call {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { path, maxDepth } = self;
         read_dir(state, path.as_ref(), *maxDepth, false)
     }
@@ -167,7 +198,10 @@ impl Cheatcode for readDir_1Call {
 
 impl_is_pure_false!(readDir_2Call);
 impl Cheatcode for readDir_2Call {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {
             path,
             maxDepth,
@@ -179,7 +213,10 @@ impl Cheatcode for readDir_2Call {
 
 impl_is_pure_false!(readFileCall);
 impl Cheatcode for readFileCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { path } = self;
         let path = state.config.ensure_path_allowed(path, FsAccessKind::Read)?;
         Ok(fs::read_to_string(path)?.abi_encode())
@@ -188,7 +225,10 @@ impl Cheatcode for readFileCall {
 
 impl_is_pure_false!(readFileBinaryCall);
 impl Cheatcode for readFileBinaryCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { path } = self;
         let path = state.config.ensure_path_allowed(path, FsAccessKind::Read)?;
         Ok(fs::read(path)?.abi_encode())
@@ -197,7 +237,10 @@ impl Cheatcode for readFileBinaryCall {
 
 impl_is_pure_false!(readLineCall);
 impl Cheatcode for readLineCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { path } = self;
         let path = state.config.ensure_path_allowed(path, FsAccessKind::Read)?;
 
@@ -226,7 +269,10 @@ impl Cheatcode for readLineCall {
 
 impl_is_pure_false!(readLinkCall);
 impl Cheatcode for readLinkCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { linkPath: path } = self;
         let path = state.config.ensure_path_allowed(path, FsAccessKind::Read)?;
         let target = fs::read_link(path)?;
@@ -236,7 +282,10 @@ impl Cheatcode for readLinkCall {
 
 impl_is_pure_false!(removeDirCall);
 impl Cheatcode for removeDirCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { path, recursive } = self;
         let path = state
             .config
@@ -252,7 +301,10 @@ impl Cheatcode for removeDirCall {
 
 impl_is_pure_false!(removeFileCall);
 impl Cheatcode for removeFileCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { path } = self;
         let path = state
             .config
@@ -272,7 +324,10 @@ impl Cheatcode for removeFileCall {
 
 impl_is_pure_false!(writeFileCall);
 impl Cheatcode for writeFileCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { path, data } = self;
         write_file(state, path.as_ref(), data.as_bytes())
     }
@@ -280,7 +335,10 @@ impl Cheatcode for writeFileCall {
 
 impl_is_pure_false!(writeFileBinaryCall);
 impl Cheatcode for writeFileBinaryCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { path, data } = self;
         write_file(state, path.as_ref(), data)
     }
@@ -288,7 +346,10 @@ impl Cheatcode for writeFileBinaryCall {
 
 impl_is_pure_false!(writeLineCall);
 impl Cheatcode for writeLineCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { path, data: line } = self;
         let path = state
             .config
@@ -310,7 +371,10 @@ impl Cheatcode for writeLineCall {
 
 impl_is_pure_false!(getCodeCall);
 impl Cheatcode for getCodeCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { artifactPath: path } = self;
         Ok(get_artifact_code(state, path, false)?.abi_encode())
     }
@@ -318,7 +382,10 @@ impl Cheatcode for getCodeCall {
 
 impl_is_pure_false!(getDeployedCodeCall);
 impl Cheatcode for getDeployedCodeCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { artifactPath: path } = self;
         Ok(get_artifact_code(state, path, true)?.abi_encode())
     }
@@ -431,7 +498,10 @@ fn get_artifact_code<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: Hardf
 
 impl_is_pure_false!(ffiCall);
 impl Cheatcode for ffiCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {
             commandInput: input,
         } = self;
@@ -449,7 +519,10 @@ impl Cheatcode for ffiCall {
 
 impl_is_pure_false!(tryFfiCall);
 impl Cheatcode for tryFfiCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {
             commandInput: input,
         } = self;
@@ -459,7 +532,10 @@ impl Cheatcode for tryFfiCall {
 
 impl_is_pure_false!(promptCall);
 impl Cheatcode for promptCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { promptText: text } = self;
         prompt(state, text, prompt_input).map(|res| res.abi_encode())
     }
@@ -467,7 +543,10 @@ impl Cheatcode for promptCall {
 
 impl_is_pure_false!(promptSecretCall);
 impl Cheatcode for promptSecretCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { promptText: text } = self;
         prompt(state, text, prompt_password).map(|res| res.abi_encode())
     }
@@ -475,7 +554,10 @@ impl Cheatcode for promptSecretCall {
 
 impl_is_pure_false!(promptAddressCall);
 impl Cheatcode for promptAddressCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { promptText: text } = self;
         parse(&prompt(state, text, prompt_input)?, &DynSolType::Address)
     }
@@ -483,13 +565,20 @@ impl Cheatcode for promptAddressCall {
 
 impl_is_pure_false!(promptUintCall);
 impl Cheatcode for promptUintCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { promptText: text } = self;
         parse(&prompt(state, text, prompt_input)?, &DynSolType::Uint(256))
     }
 }
 
-pub(super) fn write_file<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(state: &Cheatcodes<BlockT, TxT, HardforkT>, path: &Path, contents: &[u8]) -> Result {
+pub(super) fn write_file<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    state: &Cheatcodes<BlockT, TxT, HardforkT>,
+    path: &Path,
+    contents: &[u8],
+) -> Result {
     let path = state
         .config
         .ensure_path_allowed(path, FsAccessKind::Write)?;
@@ -503,7 +592,12 @@ pub(super) fn write_file<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: H
     Ok(Vec::default())
 }
 
-fn read_dir<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(state: &Cheatcodes<BlockT, TxT, HardforkT>, path: &Path, max_depth: u64, follow_links: bool) -> Result {
+fn read_dir<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    state: &Cheatcodes<BlockT, TxT, HardforkT>,
+    path: &Path,
+    max_depth: u64,
+    follow_links: bool,
+) -> Result {
     let root = state.config.ensure_path_allowed(path, FsAccessKind::Read)?;
     let paths: Vec<DirEntry> = WalkDir::new(root)
         .min_depth(1)
@@ -536,7 +630,10 @@ fn read_dir<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(st
     Ok(paths.abi_encode())
 }
 
-fn ffi<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(state: &Cheatcodes<BlockT, TxT, HardforkT>, input: &[String]) -> Result<FfiResult> {
+fn ffi<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    state: &Cheatcodes<BlockT, TxT, HardforkT>,
+    input: &[String],
+) -> Result<FfiResult> {
     ensure!(
         state.config.ffi,
         "FFI is disabled; add the `--ffi` flag to allow tests to call external commands"
@@ -616,7 +713,8 @@ mod tests {
     use super::*;
     use crate::CheatsConfig;
 
-    fn cheats<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>() -> Cheatcodes<BlockT, TxT, HardforkT> {
+    fn cheats<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    ) -> Cheatcodes<BlockT, TxT, HardforkT> {
         let config = CheatsConfig {
             ffi: true,
             project_root: PathBuf::from(&env!("CARGO_MANIFEST_DIR")),

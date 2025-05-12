@@ -52,7 +52,10 @@ impl Ord for MockCallDataContext {
 
 impl_is_pure_true!(clearMockedCallsCall);
 impl Cheatcode for clearMockedCallsCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {} = self;
         state.mocked_calls = HashMap::default();
         Ok(Vec::default())
@@ -66,18 +69,18 @@ impl Cheatcode for mockCall_0Call {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+    ) -> Result {
         let Self {
             callee,
             data,
             returnData,
         } = self;
         // TODO: use ecx.load_account
-        let acc = ccx
-            .ecx
-            .journaled_state
-            .load_account(*callee, &mut ccx.ecx.db)?;
+        let acc = ccx.ecx.journaled_state.load_account(*callee)?;
 
         // Etches a single byte onto the account if it is empty to circumvent the
         // `extcodesize` check Solidity might perform.
@@ -106,8 +109,11 @@ impl Cheatcode for mockCall_1Call {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
+        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+    ) -> Result {
         let Self {
             callee,
             msgValue,
@@ -129,7 +135,10 @@ impl Cheatcode for mockCall_1Call {
 
 impl_is_pure_true!(mockCallRevert_0Call);
 impl Cheatcode for mockCallRevert_0Call {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {
             callee,
             data,
@@ -149,7 +158,10 @@ impl Cheatcode for mockCallRevert_0Call {
 
 impl_is_pure_true!(mockCallRevert_1Call);
 impl Cheatcode for mockCallRevert_1Call {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {
             callee,
             msgValue,
