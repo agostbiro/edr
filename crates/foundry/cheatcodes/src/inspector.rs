@@ -1530,17 +1530,6 @@ impl<
     }
 }
 
-impl<BlockT, TxT, HardforkT, DatabaseT, ChainContextT>
-    CheatcodeInspectorTr<BlockT, TxT, HardforkT, DatabaseT, ChainContextT>
-    for Cheatcodes<BlockT, TxT, HardforkT>
-where
-    BlockT: BlockEnvTr,
-    TxT: TransactionEnvTr,
-    HardforkT: HardforkTr,
-    DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
-{
-}
-
 /// Helper that expands memory, stores a revert string pertaining to a
 /// disallowed memory write, and sets the return range to the revert string's
 /// location in memory.
