@@ -17,7 +17,7 @@ use foundry_evm_core::{
     abi::Vm::stopExpectSafeMemoryCall,
     backend::{CheatcodeBackend, RevertDiagnostic},
     constants::{CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS},
-    evm_env::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr},
+    evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr},
     InspectorExt,
 };
 use itertools::Itertools;
@@ -25,14 +25,14 @@ use revm::{
     self,
     bytecode::{opcode as op, opcode},
     context::{BlockEnv, CfgEnv, Context as EvmContext, JournalTr},
-    context_interface::{transaction::SignedAuthorization, CreateScheme},
+    context_interface::{transaction::SignedAuthorization, Block, CreateScheme, Transaction},
     interpreter::{
         interpreter_types::{Jumps, LoopControl, MemoryTr},
         CallInputs, CallOutcome, CallScheme, CreateInputs, CreateOutcome, EOFCreateInputs, Gas,
         Host, InstructionResult, Interpreter, InterpreterAction, InterpreterResult,
     },
     state::EvmStorageSlot,
-    Inspector, Journal,
+    Database, Inspector, Journal,
 };
 use rustc_hash::FxHashMap;
 use serde_json::Value;
@@ -1529,6 +1529,17 @@ impl<
             }
         }
     }
+}
+
+impl<BlockT, TxT, HardforkT, DatabaseT, ChainContextT>
+    InspectorExt<BlockT, TxT, HardforkT, DatabaseT, ChainContextT>
+    for Cheatcodes<BlockT, TxT, HardforkT>
+where
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+{
 }
 
 /// Helper that expands memory, stores a revert string pertaining to a

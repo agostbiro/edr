@@ -47,7 +47,7 @@ mod toml;
 mod utils;
 
 pub use cache::{CachedChains, CachedEndpoints, StorageCachingConfig};
-use foundry_evm_core::evm_env::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr};
+use foundry_evm_core::evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr};
 pub use test::expect::ExpectedCallTracker;
 pub use Vm::ExecutionContext;
 

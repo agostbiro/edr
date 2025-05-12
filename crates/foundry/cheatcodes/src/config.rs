@@ -10,7 +10,7 @@ use edr_common::fs::normalize_path;
 use foundry_compilers::utils::canonicalize;
 use foundry_evm_core::{
     contracts::ContractsByArtifact,
-    evm_env::{BlockEnvTr, HardforkTr, TransactionEnvTr},
+    evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr},
     opts::EvmOpts,
 };
 use semver::Version;
