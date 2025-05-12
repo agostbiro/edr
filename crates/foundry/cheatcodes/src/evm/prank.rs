@@ -67,8 +67,11 @@ impl Cheatcode for prank_0Call {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
+    ) -> Result {
         let Self { msgSender } = self;
         prank(ccx, msgSender, None, true)
     }
@@ -81,8 +84,11 @@ impl Cheatcode for startPrank_0Call {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
+    ) -> Result {
         let Self { msgSender } = self;
         prank(ccx, msgSender, None, false)
     }
@@ -95,8 +101,11 @@ impl Cheatcode for prank_1Call {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
+    ) -> Result {
         let Self {
             msgSender,
             txOrigin,
@@ -112,8 +121,11 @@ impl Cheatcode for startPrank_1Call {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>) -> Result {
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
+    ) -> Result {
         let Self {
             msgSender,
             txOrigin,
@@ -124,7 +136,10 @@ impl Cheatcode for startPrank_1Call {
 
 impl_is_pure_true!(stopPrankCall);
 impl Cheatcode for stopPrankCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {} = self;
         state.prank = None;
         Ok(Vec::default())
@@ -136,9 +151,9 @@ fn prank<
     TxT: TransactionEnvTr,
     HardforkT: HardforkTr,
     ChainContextT: ChainContextTr,
-    DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
+    DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
 >(
-    ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+    ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     new_caller: &Address,
     new_origin: Option<&Address>,
     single_call: bool,

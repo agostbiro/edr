@@ -82,10 +82,10 @@ impl Cheatcode for getNonceCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { account } = self;
         get_nonce(ccx, account)
@@ -99,10 +99,10 @@ impl Cheatcode for loadCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { target, slot } = *self;
         ensure_not_precompile!(&target, ccx);
@@ -119,10 +119,10 @@ impl Cheatcode for loadAllocsCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { pathToAllocsJson } = self;
 
@@ -158,10 +158,10 @@ impl Cheatcode for dumpStateCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { pathToStateJson } = self;
         let path = Path::new(pathToStateJson);
@@ -214,10 +214,10 @@ impl Cheatcode for signCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        _: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        _: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { privateKey, digest } = self;
         super::utils::sign(privateKey, digest)
@@ -231,10 +231,10 @@ impl Cheatcode for signP256Call {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { privateKey, digest } = self;
         super::utils::sign_p256(privateKey, digest)
@@ -354,10 +354,10 @@ impl Cheatcode for chainIdCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { newChainId } = self;
         ensure!(
@@ -376,10 +376,10 @@ impl Cheatcode for coinbaseCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { newCoinbase } = self;
         ccx.ecx.env.block.coinbase = *newCoinbase;
@@ -394,10 +394,10 @@ impl Cheatcode for difficultyCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { newDifficulty } = self;
         ensure!(
@@ -417,10 +417,10 @@ impl Cheatcode for feeCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { newBasefee } = self;
         ccx.ecx.env.block.basefee = *newBasefee;
@@ -435,10 +435,10 @@ impl Cheatcode for prevrandao_0Call {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { newPrevrandao } = self;
         ensure!(
@@ -458,10 +458,10 @@ impl Cheatcode for prevrandao_1Call {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { newPrevrandao } = self;
         ensure!(
@@ -481,10 +481,10 @@ impl Cheatcode for blobhashesCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { hashes } = self;
         ensure!(
@@ -505,10 +505,10 @@ impl Cheatcode for getBlobhashesCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self {} = self;
         ensure!(
@@ -527,10 +527,10 @@ impl Cheatcode for rollCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { newHeight } = self;
         ccx.ecx.env.block.number = *newHeight;
@@ -545,10 +545,10 @@ impl Cheatcode for getBlockNumberCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self {} = self;
         Ok(ccx.ecx.env.block.number.abi_encode())
@@ -562,10 +562,10 @@ impl Cheatcode for txGasPriceCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { newGasPrice } = self;
         ccx.ecx.env.tx.gas_price = *newGasPrice;
@@ -580,10 +580,10 @@ impl Cheatcode for warpCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { newTimestamp } = self;
         ccx.ecx.env.block.timestamp = *newTimestamp;
@@ -598,10 +598,10 @@ impl Cheatcode for getBlockTimestampCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self {} = self;
         Ok(ccx.ecx.block.timestamp().abi_encode())
@@ -615,10 +615,10 @@ impl Cheatcode for blobBaseFeeCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { newBlobBaseFee } = self;
         ensure!(
@@ -641,10 +641,10 @@ impl Cheatcode for getBlobBaseFeeCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self {} = self;
         Ok(ccx
@@ -664,10 +664,10 @@ impl Cheatcode for dealCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self {
             account: address,
@@ -692,10 +692,10 @@ impl Cheatcode for etchCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self {
             target,
@@ -716,10 +716,10 @@ impl Cheatcode for resetNonceCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { account } = self;
         let account = journaled_account(ccx.ecx, *account)?;
@@ -741,10 +741,10 @@ impl Cheatcode for setNonceCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { account, newNonce } = *self;
         let account = journaled_account(ccx.ecx, account)?;
@@ -767,10 +767,10 @@ impl Cheatcode for setNonceUnsafeCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { account, newNonce } = *self;
         let account = journaled_account(ccx.ecx, account)?;
@@ -786,10 +786,10 @@ impl Cheatcode for storeCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self {
             target,
@@ -813,10 +813,10 @@ impl Cheatcode for coolCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { target } = self;
         if let Some(account) = ccx.ecx.journaled_state.state.get_mut(target) {
@@ -834,10 +834,10 @@ impl Cheatcode for readCallersCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self {} = self;
         read_callers(ccx.state, &ccx.ecx.tx.caller())
@@ -851,10 +851,10 @@ impl Cheatcode for snapshotCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self {} = self;
         Ok(ccx
@@ -872,10 +872,10 @@ impl Cheatcode for revertToCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { snapshotId } = self;
         let result = if let Some(journaled_state) = ccx.ecx.db.revert(
@@ -902,10 +902,10 @@ impl Cheatcode for revertToAndDeleteCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { snapshotId } = self;
         let result = if let Some(journaled_state) = ccx.ecx.db.revert(
@@ -932,10 +932,10 @@ impl Cheatcode for deleteSnapshotCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { snapshotId } = self;
         let result = ccx.ecx.db.delete_snapshot(*snapshotId);
@@ -950,10 +950,10 @@ impl Cheatcode for deleteSnapshotsCall {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self {} = self;
         ccx.ecx.db.delete_snapshots();
@@ -989,9 +989,9 @@ pub(super) fn get_nonce<
     TxT: TransactionEnvTr,
     HardforkT: HardforkTr,
     ChainContextT: ChainContextTr,
-    DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+    DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
 >(
-    ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+    ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     address: &Address,
 ) -> Result {
     let account = ccx.ecx.journaled_state.load_account(*address)?;
@@ -1047,14 +1047,14 @@ pub(super) fn journaled_account<
     TxT: TransactionEnvTr,
     HardforkT: HardforkTr,
     ChainContextT: ChainContextTr,
-    DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+    DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
 >(
     ecx: &mut revm::context::Context<
         BlockT,
         TxT,
         CfgEnv<HardforkT>,
-        DB,
-        Journal<DB>,
+        DatabaseT,
+        Journal<DatabaseT>,
         ChainContextT,
     >,
     addr: Address,

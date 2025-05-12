@@ -69,10 +69,10 @@ impl Cheatcode for mockCall_0Call {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self {
             callee,
@@ -109,10 +109,10 @@ impl Cheatcode for mockCall_1Call {
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DB: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DB>,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self {
             callee,
