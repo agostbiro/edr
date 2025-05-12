@@ -15,10 +15,9 @@ use alloy_rpc_types::request::TransactionRequest;
 use alloy_sol_types::{SolInterface, SolValue};
 use foundry_evm_core::{
     abi::Vm::stopExpectSafeMemoryCall,
-    backend::{CheatcodeBackend, RevertDiagnostic},
+    backend::{CheatcodeBackend, CheatcodeInspectorTr, RevertDiagnostic},
     constants::{CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS},
     evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr},
-    InspectorExt,
 };
 use itertools::Itertools;
 use revm::{
@@ -1532,7 +1531,7 @@ impl<
 }
 
 impl<BlockT, TxT, HardforkT, DatabaseT, ChainContextT>
-    InspectorExt<BlockT, TxT, HardforkT, DatabaseT, ChainContextT>
+    CheatcodeInspectorTr<BlockT, TxT, HardforkT, DatabaseT, ChainContextT>
     for Cheatcodes<BlockT, TxT, HardforkT>
 where
     BlockT: BlockEnvTr,

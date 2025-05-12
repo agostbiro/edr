@@ -4,7 +4,7 @@ use alloy_rpc_types::Filter;
 use alloy_sol_types::SolValue;
 use foundry_evm_core::{
     evm_context::{
-        split_context, BlockEnvTr, ChainContextTr, EvmEnv, HardforkTr, TransactionEnvTr,
+        split_context, BlockEnvTr, ChainContextTr, EvmContext, EvmEnv, HardforkTr, TransactionEnvTr,
     },
     fork::{provider::ProviderBuilder, CreateFork},
 };
@@ -657,7 +657,7 @@ fn create_fork_request<
     let fork = CreateFork {
         rpc_cache_path: ccx.state.config.rpc_cache_path.clone(),
         url,
-        env: EvmEnv::from(ccx.ecx),
+        env: EvmContext::from(ccx.ecx).to_owned_env(),
         evm_opts,
     };
     Ok(fork)

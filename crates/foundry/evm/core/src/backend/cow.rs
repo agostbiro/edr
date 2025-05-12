@@ -17,14 +17,13 @@ use revm::{
     Database, DatabaseCommit, InspectEvm, JournalEntry,
 };
 
-use super::BackendError;
+use super::{BackendError, CheatcodeInspectorTr};
 use crate::{
     backend::{
         diagnostic::RevertDiagnostic, Backend, CheatcodeBackend, LocalForkId, RevertSnapshotAction,
     },
     evm_context::{BlockEnvTr, ChainContextTr, EvmContext, EvmEnv, HardforkTr, TransactionEnvTr},
     fork::{CreateFork, ForkId},
-    InspectorExt,
 };
 
 /// A wrapper around `Backend` that ensures only `revm::DatabaseRef` functions
@@ -93,7 +92,7 @@ impl<
         chain_context: ChainContextT,
     ) -> eyre::Result<ResultAndState>
     where
-        InspectorT: InspectorExt<BlockT, TxT, HardforkT, &'b mut Self, ChainContextT>,
+        InspectorT: CheatcodeInspectorTr<BlockT, TxT, HardforkT, &'b mut Self, ChainContextT>,
     {
         // this is a new call to inspect with a new env, so even if we've cloned the
         // backend already, we reset the initialized state
@@ -255,7 +254,7 @@ impl<
         context: &'d mut EvmContext<'d, BlockT, TxT, HardforkT, ChainContextT>,
     ) -> eyre::Result<()>
     where
-        InspectorT: InspectorExt<
+        InspectorT: CheatcodeInspectorTr<
             BlockT,
             TxT,
             HardforkT,

@@ -31,38 +31,3 @@ pub mod opts;
 pub mod precompiles;
 pub mod snapshot;
 pub mod utils;
-
-/// An extension trait that allows us to add additional hooks to Inspector for
-/// later use in handlers.
-#[auto_impl(&mut, Box)]
-pub trait InspectorExt<BlockT, TxT, HardforkT, DatabaseT, ChainContextT>:
-    Inspector<Context<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>>
-where
-    BlockT: Block,
-    TxT: Transaction,
-    HardforkT: Into<SpecId> + Copy,
-    DatabaseT: Database,
-{
-    // Simulates `console.log` invocation.
-    fn console_log(&mut self, _input: String) {}
-}
-
-impl<BlockT, TxT, HardforkT, DatabaseT, ChainContextT>
-    InspectorExt<BlockT, TxT, HardforkT, DatabaseT, ChainContextT> for NoOpInspector
-where
-    BlockT: Block,
-    TxT: Transaction,
-    HardforkT: Into<SpecId> + Copy,
-    DatabaseT: Database,
-{
-}
-
-impl<BlockT, TxT, HardforkT, DatabaseT, ChainContextT>
-    InspectorExt<BlockT, TxT, HardforkT, DatabaseT, ChainContextT> for AccessListInspector
-where
-    BlockT: Block,
-    TxT: Transaction,
-    HardforkT: Into<SpecId> + Copy,
-    DatabaseT: Database,
-{
-}

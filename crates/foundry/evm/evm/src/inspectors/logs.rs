@@ -6,7 +6,7 @@ use foundry_evm_core::{
         patch_hh_console_selector, Console, HardhatConsole,
     },
     constants::HARDHAT_CONSOLE_ADDRESS,
-    InspectorExt,
+    InspectorTr,
 };
 use revm::{
     interpreter::{
@@ -71,16 +71,6 @@ impl<DB: Database> Inspector<DB> for LogCollector {
         }
 
         None
-    }
-}
-
-impl<DB: Database> InspectorExt<DB> for LogCollector {
-    fn console_log(&mut self, input: String) {
-        self.logs.push(Log::new_unchecked(
-            HARDHAT_CONSOLE_ADDRESS,
-            vec![Console::log::SIGNATURE_HASH],
-            input.abi_encode().into(),
-        ));
     }
 }
 

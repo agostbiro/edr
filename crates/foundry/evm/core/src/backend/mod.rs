@@ -15,7 +15,7 @@ use eyre::WrapErr;
 pub use foundry_fork_db::{cache::BlockchainDbMeta, BlockchainDb, SharedBackend};
 use revm::{
     bytecode::Bytecode,
-    context::{Cfg, JournalInner},
+    context::{Cfg, CfgEnv, JournalInner},
     context_interface::{result::ResultAndState, Block, JournalTr, Transaction},
     database::{CacheDB, DatabaseRef},
     handler::PrecompileProvider,
@@ -23,7 +23,7 @@ use revm::{
     precompile::{PrecompileSpecId, Precompiles},
     primitives::{HashMap as Map, Log, KECCAK_EMPTY},
     state::{Account, AccountInfo, EvmState, EvmStorageSlot},
-    Database, DatabaseCommit, InspectEvm, JournalEntry,
+    Database, DatabaseCommit, InspectEvm, Inspector, Journal, JournalEntry,
 };
 use serde::{Deserialize, Serialize};
 
@@ -32,7 +32,6 @@ use crate::{
     fork::{CreateFork, ForkId, MultiFork},
     snapshot::Snapshots,
     utils::configure_tx_env,
-    InspectorExt,
 };
 
 mod diagnostic;
@@ -89,6 +88,48 @@ const OPTIMISM_SYSTEM_ADDRESS: Address = address!("deaddeaddeaddeaddeaddeaddeadd
 
 /// Transaction identifier of System transaction types
 const SYSTEM_TRANSACTION_TYPE: u8 = 126;
+
+/// Helper trait to reduce typing generics for `revm::Inspector`
+pub trait CheatcodeInspectorTr<BlockT, TxT, HardforkT, DatabaseT, ChainContextT>:
+    Inspector<
+    revm::context::Context<
+        BlockT,
+        TxT,
+        CfgEnv<HardforkT>,
+        DatabaseT,
+        Journal<DatabaseT>,
+        ChainContextT,
+    >,
+>
+where
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    DatabaseT: Database,
+    ChainContextT: ChainContextTr,
+{
+}
+
+impl<T, BlockT, TxT, HardforkT, DatabaseT, ChainContextT>
+    CheatcodeInspectorTr<BlockT, TxT, HardforkT, DatabaseT, ChainContextT> for T
+where
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    DatabaseT: Database,
+    ChainContextT: ChainContextTr,
+    T: Inspector<
+        revm::context::Context<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
+    >,
+{
+}
 
 /// An extension trait that allows us to easily extend the `revm::Inspector`
 /// capabilities for cheatcodes
@@ -241,7 +282,7 @@ pub trait CheatcodeBackend<
         context: &'a mut EvmContext<'a, BlockT, TxT, HardforkT, ChainContextT>,
     ) -> eyre::Result<()>
     where
-        InspectorT: InspectorExt<
+        InspectorT: CheatcodeInspectorTr<
             BlockT,
             TxT,
             HardforkT,
@@ -958,7 +999,7 @@ impl<
         inspector: InspectorT,
     ) -> eyre::Result<ResultAndState>
     where
-        InspectorT: InspectorExt<BlockT, TxT, HardforkT, &'a mut Self, ChainContextT>,
+        InspectorT: CheatcodeInspectorTr<BlockT, TxT, HardforkT, &'a mut Self, ChainContextT>,
     {
         self.initialize(env);
         let mut evm =
@@ -1460,7 +1501,7 @@ impl<
         context: &mut EvmContext<BlockT, TxT, HardforkT, ChainContextT>,
     ) -> eyre::Result<()>
     where
-        InspectorT: InspectorExt<
+        InspectorT: CheatcodeInspectorTr<
             BlockT,
             TxT,
             HardforkT,
@@ -2237,7 +2278,7 @@ fn commit_transaction<
     inspector: InspectorT,
 ) -> eyre::Result<()>
 where
-    InspectorT: InspectorExt<
+    InspectorT: CheatcodeInspectorTr<
         BlockT,
         TxT,
         HardforkT,

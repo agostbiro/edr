@@ -137,6 +137,44 @@ pub struct EvmContext<'a, BlockT, TxT, HardforkT, ChainContextT> {
     pub chain_context: &'a mut ChainContextT,
 }
 
+impl<'a, BlockT, TxT, HardforkT, ChainContextT, DatabaseT>
+    From<
+        &'a mut revm::context::Context<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
+    > for EvmContext<'a, BlockT, TxT, HardforkT, ChainContextT>
+where
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+    DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+{
+    fn from(
+        value: &'a mut revm::context::Context<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
+    ) -> Self {
+        Self {
+            block: &mut value.block,
+            tx: &mut value.tx,
+            cfg: &mut value.cfg,
+            journaled_state: &mut value.journaled_state,
+            chain_context: &mut value.chain,
+        }
+    }
+}
+
 impl<'a, BlockT, TxT, HardforkT, ChainContextT>
     EvmContext<'a, BlockT, TxT, HardforkT, ChainContextT>
 where

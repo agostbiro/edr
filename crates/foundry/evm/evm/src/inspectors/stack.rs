@@ -3,7 +3,7 @@ use std::sync::Arc;
 use alloy_primitives::{map::AddressHashMap, Address, Bytes, Log, U256};
 use foundry_evm_core::{
     backend::{update_state, CheatcodeBackend},
-    InspectorExt,
+    InspectorTr,
 };
 use foundry_evm_coverage::HitMaps;
 use foundry_evm_traces::SparsedTraceArena;
@@ -852,7 +852,7 @@ impl<DB: CheatcodeBackend + DatabaseCommit> Inspector<&mut DB> for InspectorStac
     }
 }
 
-impl<DB: CheatcodeBackend + DatabaseCommit> InspectorExt<&mut DB> for InspectorStack {
+impl<DB: CheatcodeBackend + DatabaseCommit> InspectorTr<&mut DB> for InspectorStack {
     fn should_use_create2_factory(
         &mut self,
         ecx: &mut EvmContext<&mut DB>,
