@@ -120,7 +120,7 @@ impl Cheatcode for mockCall_1Call {
             data,
             returnData,
         } = self;
-        ccx.ecx.load_account(*callee)?;
+        ccx.ecx.journaled_state.load_account(*callee)?;
         mock_call(
             ccx.state,
             callee,

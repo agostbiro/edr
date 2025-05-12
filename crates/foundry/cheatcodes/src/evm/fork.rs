@@ -657,7 +657,11 @@ fn create_fork_request<
     let fork = CreateFork {
         rpc_cache_path: ccx.state.config.rpc_cache_path.clone(),
         url,
-        env: EvmContext::from(ccx.ecx).to_owned_env(),
+        env: EvmEnv {
+            block: (*ccx.ecx).block.clone(),
+            tx: (*ccx.ecx).tx.clone(),
+            cfg: (*ccx.ecx).cfg.clone(),
+        },
         evm_opts,
     };
     Ok(fork)

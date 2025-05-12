@@ -1,5 +1,6 @@
 use alloy_primitives::Address;
 use foundry_evm_core::evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr};
+use revm::context_interface::JournalTr;
 
 use crate::{
     impl_is_pure_true, Cheatcode, CheatcodeBackend, Cheatcodes, CheatsCtxt, Result,
@@ -160,10 +161,10 @@ fn prank<
 ) -> Result {
     let prank = Prank::new(
         ccx.caller,
-        ccx.ecx.env.tx.caller,
+        ccx.ecx.tx.caller(),
         *new_caller,
         new_origin.copied(),
-        ccx.ecx.journaled_state.depth(),
+        ccx.ecx.journaled_state.depth() as u64,
         single_call,
     );
 
