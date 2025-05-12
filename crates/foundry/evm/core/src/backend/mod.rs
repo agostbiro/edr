@@ -150,7 +150,7 @@ pub trait CheatcodeBackend<
     fn snapshot(
         &mut self,
         journaled_state: &JournalInner<JournalEntry>,
-        env: &EvmEnv<BlockT, TxT, HardforkT>,
+        env: EvmEnv<BlockT, TxT, HardforkT>,
     ) -> U256;
 
     /// Reverts the snapshot if it exists
@@ -1162,13 +1162,13 @@ impl<
     fn snapshot(
         &mut self,
         journaled_state: &JournalInner<JournalEntry>,
-        env: &EvmEnv<BlockT, TxT, HardforkT>,
+        env: EvmEnv<BlockT, TxT, HardforkT>,
     ) -> U256 {
         trace!("create snapshot");
         let id = self.inner.snapshots.insert(BackendSnapshot::new(
             self.create_db_snapshot(),
             journaled_state.clone(),
-            env.clone(),
+            env,
         ));
         trace!(target: "backend", "Created new snapshot {}", id);
         id

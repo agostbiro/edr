@@ -167,7 +167,7 @@ impl<
     fn snapshot(
         &mut self,
         journaled_state: &JournalInner<JournalEntry>,
-        env: &EvmEnv<BlockT, TxT, HardforkT>,
+        env: EvmEnv<BlockT, TxT, HardforkT>,
     ) -> U256 {
         self.backend_mut(env.clone()).snapshot(journaled_state, env)
     }

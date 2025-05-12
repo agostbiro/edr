@@ -12,7 +12,7 @@ use edr_common::fs::{read_json_file, write_json_file};
 use foundry_evm_core::{
     backend::{CheatcodeBackend, RevertSnapshotAction},
     constants::{CALLER, CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS, TEST_CONTRACT_ADDRESS},
-    evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr},
+    evm_context::{split_context, BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr},
 };
 use revm::{
     bytecode::Bytecode,
@@ -143,10 +143,8 @@ impl Cheatcode for loadAllocsCall {
         };
 
         // Then, load the allocs into the database.
-        ccx.ecx
-            .journaled_state
-            .database
-            .load_allocs(&allocs, &mut ccx.ecx.journaled_state)
+        let (db, mut context) = split_context(ccx.ecx);
+        db.load_allocs(&allocs, &mut context.journaled_state)
             .map(|()| Vec::default())
             .map_err(|e| fmt_err!("failed to load allocs: {e}"))
     }
@@ -663,13 +661,7 @@ impl Cheatcode for getBlobBaseFeeCall {
         ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self {} = self;
-        Ok(ccx
-            .ecx
-            .env
-            .block
-            .get_blob_excess_gas()
-            .unwrap_or(0)
-            .abi_encode())
+        Ok(ccx.ecx.block.blob_excess_gas().unwrap_or(0).abi_encode())
     }
 }
 
@@ -873,10 +865,9 @@ impl Cheatcode for snapshotCall {
         ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self {} = self;
-        Ok(ccx
-            .ecx
-            .db
-            .snapshot(&ccx.ecx.journaled_state, &ccx.ecx.env)
+        let (db, context) = split_context(ccx.ecx);
+        Ok(db
+            .snapshot(&context.journaled_state, context.to_owned_env())
             .abi_encode())
     }
 }
@@ -894,15 +885,13 @@ impl Cheatcode for revertToCall {
         ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { snapshotId } = self;
-        let result = if let Some(journaled_state) = ccx.ecx.db.revert(
-            *snapshotId,
-            &ccx.ecx.journaled_state,
-            &mut ccx.ecx.env,
-            RevertSnapshotAction::RevertKeep,
-        ) {
+        let (db, mut context) = split_context(ccx.ecx);
+        let result = if let Some(journaled_state) =
+            db.revert(*snapshotId, RevertSnapshotAction::RevertKeep, &mut context)
+        {
             // we reset the evm's journaled_state to the state of the snapshot previous
             // state
-            ccx.ecx.journaled_state = journaled_state;
+            ccx.ecx.journaled_state.inner = journaled_state;
             true
         } else {
             false
@@ -924,15 +913,15 @@ impl Cheatcode for revertToAndDeleteCall {
         ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { snapshotId } = self;
-        let result = if let Some(journaled_state) = ccx.ecx.db.revert(
+        let (db, mut context) = split_context(ccx.ecx);
+        let result = if let Some(journaled_state) = db.revert(
             *snapshotId,
-            &ccx.ecx.journaled_state,
-            &mut ccx.ecx.env,
             RevertSnapshotAction::RevertRemove,
+            &mut context,
         ) {
             // we reset the evm's journaled_state to the state of the snapshot previous
             // state
-            ccx.ecx.journaled_state = journaled_state;
+            ccx.ecx.journaled_state.inner = journaled_state;
             true
         } else {
             false
@@ -954,7 +943,11 @@ impl Cheatcode for deleteSnapshotCall {
         ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { snapshotId } = self;
-        let result = ccx.ecx.db.delete_snapshot(*snapshotId);
+        let result = ccx
+            .ecx
+            .journaled_state
+            .database
+            .delete_snapshot(*snapshotId);
         Ok(result.abi_encode())
     }
 }
@@ -972,7 +965,7 @@ impl Cheatcode for deleteSnapshotsCall {
         ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self {} = self;
-        ccx.ecx.db.delete_snapshots();
+        ccx.ecx.journaled_state.database.delete_snapshots();
         Ok(Vec::default())
     }
 }
