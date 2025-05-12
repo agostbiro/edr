@@ -69,9 +69,9 @@ impl<
             Journal<DatabaseT>,
             ChainContextT,
         >,
-        log: &Log,
+        log: Log,
     ) {
-        self.logs.push(log.clone());
+        self.logs.push(log);
     }
 
     #[inline]

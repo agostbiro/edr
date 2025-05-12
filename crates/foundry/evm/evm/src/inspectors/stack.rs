@@ -8,13 +8,13 @@ use foundry_evm_core::{
 use foundry_evm_coverage::HitMaps;
 use foundry_evm_traces::SparsedTraceArena;
 use revm::{
-    context::{result::ExecutionResult, BlockEnv},
+    context::{result::ExecutionResult, BlockEnv, CfgEnv, Context as EvmContext},
     context_interface::result::Output,
     interpreter::{
         CallInputs, CallOutcome, CallScheme, CreateInputs, CreateOutcome, Gas, InstructionResult,
         Interpreter, InterpreterResult,
     },
-    DatabaseCommit, Inspector,
+    DatabaseCommit, Inspector, Journal,
 };
 
 use super::{
@@ -597,8 +597,29 @@ impl InspectorStack {
 // works because internally we only use `&mut DB` anyways, but if
 // this ever needs to be changed, this can be reverted back to using just `DB`,
 // and instead using dynamic dispatch (`&mut dyn ...`) in `transact_inner`.
-impl<DB: CheatcodeBackend + DatabaseCommit> Inspector<&mut DB> for InspectorStack {
-    fn initialize_interp(&mut self, interpreter: &mut Interpreter, ecx: &mut EvmContext<&mut DB>) {
+impl<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT> + DatabaseCommit,
+    >
+    Inspector<
+        EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+    > for InspectorStack
+{
+    fn initialize_interp(
+        &mut self,
+        interpreter: &mut Interpreter,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
+    ) {
         call_inspectors_adjust_depth!(
             #[no_ret]
             [&mut self.coverage, &mut self.tracer, &mut self.cheatcodes,],
@@ -608,7 +629,18 @@ impl<DB: CheatcodeBackend + DatabaseCommit> Inspector<&mut DB> for InspectorStac
         );
     }
 
-    fn step(&mut self, interpreter: &mut Interpreter, ecx: &mut EvmContext<&mut DB>) {
+    fn step(
+        &mut self,
+        interpreter: &mut Interpreter,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
+    ) {
         call_inspectors_adjust_depth!(
             #[no_ret]
             [
@@ -623,7 +655,18 @@ impl<DB: CheatcodeBackend + DatabaseCommit> Inspector<&mut DB> for InspectorStac
         );
     }
 
-    fn step_end(&mut self, interpreter: &mut Interpreter, ecx: &mut EvmContext<&mut DB>) {
+    fn step_end(
+        &mut self,
+        interpreter: &mut Interpreter,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
+    ) {
         call_inspectors_adjust_depth!(
             #[no_ret]
             [&mut self.tracer, &mut self.cheatcodes],
@@ -633,7 +676,19 @@ impl<DB: CheatcodeBackend + DatabaseCommit> Inspector<&mut DB> for InspectorStac
         );
     }
 
-    fn log(&mut self, interpreter: &mut Interpreter, ecx: &mut EvmContext<&mut DB>, log: &Log) {
+    fn log(
+        &mut self,
+        interpreter: &mut Interpreter,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
+        log: &Log,
+    ) {
         call_inspectors_adjust_depth!(
             #[no_ret]
             [
@@ -649,7 +704,14 @@ impl<DB: CheatcodeBackend + DatabaseCommit> Inspector<&mut DB> for InspectorStac
 
     fn call(
         &mut self,
-        ecx: &mut EvmContext<&mut DB>,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
         call: &mut CallInputs,
     ) -> Option<CallOutcome> {
         if self.in_inner_context && ecx.journaled_state.depth == 0 {
@@ -701,7 +763,14 @@ impl<DB: CheatcodeBackend + DatabaseCommit> Inspector<&mut DB> for InspectorStac
 
     fn call_end(
         &mut self,
-        ecx: &mut EvmContext<&mut DB>,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
         inputs: &CallInputs,
         outcome: &mut CallOutcome,
     ) -> CallOutcome {
@@ -726,7 +795,14 @@ impl<DB: CheatcodeBackend + DatabaseCommit> Inspector<&mut DB> for InspectorStac
 
     fn create(
         &mut self,
-        ecx: &mut EvmContext<&mut DB>,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
         create: &mut CreateInputs,
     ) -> Option<CreateOutcome> {
         if self.in_inner_context && ecx.journaled_state.depth == 0 {
@@ -758,7 +834,14 @@ impl<DB: CheatcodeBackend + DatabaseCommit> Inspector<&mut DB> for InspectorStac
 
     fn create_end(
         &mut self,
-        ecx: &mut EvmContext<&mut DB>,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
         call: &CreateInputs,
         outcome: &mut CreateOutcome,
     ) -> CreateOutcome {
@@ -791,7 +874,16 @@ impl<DB: CheatcodeBackend + DatabaseCommit> Inspector<&mut DB> for InspectorStac
 
     fn selfdestruct(&mut self, contract: Address, target: Address, value: U256) {
         call_inspectors!([&mut self.tracer], |inspector| {
-            Inspector::<DB>::selfdestruct(inspector, contract, target, value);
+            Inspector::<
+                EvmContext<
+                    BlockT,
+                    TxT,
+                    CfgEnv<HardforkT>,
+                    DatabaseT,
+                    Journal<DatabaseT>,
+                    ChainContextT,
+                >,
+            >::selfdestruct(inspector, contract, target, value);
         });
     }
 }

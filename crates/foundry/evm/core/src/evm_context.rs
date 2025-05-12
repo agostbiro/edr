@@ -29,6 +29,7 @@ impl<T> HardforkTr for T where
 pub trait BlockEnvTr:
     'static
     + Clone
+    + std::fmt::Debug
     + Default
     + From<BlockEnvOpts>
     + From<BlockEnv>
@@ -44,6 +45,7 @@ pub trait BlockEnvTr:
 impl<T> BlockEnvTr for T where
     T: 'static
         + Clone
+        + std::fmt::Debug
         + Default
         + From<BlockEnvOpts>
         + From<BlockEnv>
@@ -57,13 +59,23 @@ impl<T> BlockEnvTr for T where
 }
 
 pub trait TransactionEnvTr:
-    'static + Clone + Default + From<TxEnvOpts> + Transaction + TransactionEnvMut + Send + Sync + Unpin
+    'static
+    + Clone
+    + std::fmt::Debug
+    + Default
+    + From<TxEnvOpts>
+    + Transaction
+    + TransactionEnvMut
+    + Send
+    + Sync
+    + Unpin
 {
 }
 
 impl<T> TransactionEnvTr for T where
     T: 'static
         + Clone
+        + std::fmt::Debug
         + Default
         + From<TxEnvOpts>
         + Transaction
@@ -74,9 +86,9 @@ impl<T> TransactionEnvTr for T where
 {
 }
 
-pub trait ChainContextTr: Clone {}
+pub trait ChainContextTr: Clone + std::fmt::Debug + Default {}
 
-impl<T> ChainContextTr for T where T: Clone {}
+impl<T> ChainContextTr for T where T: Clone + std::fmt::Debug + Default {}
 
 pub trait TransactionEnvMut {
     fn set_blob_versioned_hashes(&mut self, blob_hashes: Vec<B256>);

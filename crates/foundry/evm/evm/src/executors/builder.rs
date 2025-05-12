@@ -35,7 +35,7 @@ where
     /// The configured evm
     env: EvmEnv<BlockT, TxT, HardforkT>,
     /// The chain context
-    chain_context: Option<ChainContextT>,
+    chain_context: ChainContextT,
 }
 
 impl<BlockT, TxT, HardforkT, ChainContextT> Default
@@ -54,7 +54,7 @@ where
             spec_id: HardforkT::default(),
             fork: None,
             env: EvmEnv::default(),
-            chain_context: ChainContexT::default(),
+            chain_context: ChainContextT::default(),
         }
     }
 }
