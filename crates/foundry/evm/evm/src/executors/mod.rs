@@ -74,7 +74,12 @@ sol! {
 ///   discarded afterwards, in other words: the state of the underlying database
 ///   remains unchanged.
 #[derive(Clone, Debug)]
-pub struct Executor<BlockT, TxT, HardforkT, ChainContextT> {
+pub struct Executor<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+> {
     /// The underlying `revm::Database` that contains the EVM storage.
     // Note: We do not store an EVM here, since we are really
     // only interested in the database. REVM's `EVM` is a thin
@@ -84,7 +89,7 @@ pub struct Executor<BlockT, TxT, HardforkT, ChainContextT> {
     /// The EVM environment.
     pub env: EvmEnv<BlockT, TxT, HardforkT>,
     /// The Revm inspector stack.
-    pub inspector: InspectorStack,
+    pub inspector: InspectorStack<BlockT, TxT, HardforkT>,
     chain_context: ChainContextT,
     /// The gas limit for calls and deployments. This is different from the gas
     /// limit imposed by the passed in environment, as those limits are used
@@ -104,7 +109,7 @@ impl<
         mut backend: Backend<BlockT, TxT, HardforkT, ChainContextT>,
         env: EvmEnv<BlockT, TxT, HardforkT>,
         chain_context: ChainContextT,
-        inspector: InspectorStack,
+        inspector: InspectorStack<BlockT, TxT, HardforkT>,
         gas_limit: u64,
     ) -> Self {
         // Need to create a non-empty contract on the cheatcodes address so
@@ -401,7 +406,7 @@ impl<
         let mut inspector = self.inspector.clone();
         let result = self
             .backend
-            .inspect(&mut env, &mut inspector, self.chain_context.clone())?;
+            .inspect(&mut env, self.chain_context.clone(), &mut inspector)?;
         convert_executed_result(env, inspector, result, self.backend.has_snapshot_failure())
     }
 
@@ -932,7 +937,7 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr> std::ops:
 /// `RawCallResult`
 fn convert_executed_result<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
     env: EvmEnv<BlockT, TxT, HardforkT>,
-    inspector: InspectorStack,
+    inspector: InspectorStack<BlockT, TxT, HardforkT>,
     result: ResultAndState,
     has_snapshot_failure: bool,
 ) -> eyre::Result<RawCallResult<BlockT, TxT, HardforkT>> {
@@ -961,10 +966,14 @@ fn convert_executed_result<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT:
     };
 
     let gas = revm::interpreter::gas::calculate_initial_tx_gas(
-        env.spec_id(),
+        env.cfg.spec.into(),
         env.tx.input(),
         env.tx.kind().is_create(),
-        &env.tx.access_list(),
+        env.tx
+            .access_list()
+            .map(Iterator::count)
+            .unwrap_or(0)
+            .try_into()?,
         0,
         0,
     );

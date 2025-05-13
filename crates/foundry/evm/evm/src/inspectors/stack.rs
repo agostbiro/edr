@@ -24,7 +24,7 @@ use super::{
 
 #[derive(Clone, Debug, Default)]
 #[must_use = "builders do nothing unless you call `build` on them"]
-pub struct InspectorStackBuilder {
+pub struct InspectorStackBuilder<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr> {
     /// The block environment.
     ///
     /// Used in the cheatcode handler to overwrite the block environment
@@ -36,7 +36,7 @@ pub struct InspectorStackBuilder {
     /// the gas price in the execution environment.
     pub gas_price: Option<u128>,
     /// The cheatcodes config.
-    pub cheatcodes: Option<Arc<CheatsConfig>>,
+    pub cheatcodes: Option<Arc<CheatsConfig<BlockT, TxT, HardforkT>>>,
     /// The fuzzer inspector and its state, if it exists.
     pub fuzzer: Option<Fuzzer>,
     /// Whether to enable tracing.
@@ -52,7 +52,9 @@ pub struct InspectorStackBuilder {
     pub enable_isolation: bool,
 }
 
-impl InspectorStackBuilder {
+impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
+    InspectorStackBuilder<BlockT, TxT, HardforkT>
+{
     /// Create a new inspector stack builder.
     #[inline]
     pub fn new() -> Self {
@@ -75,7 +77,7 @@ impl InspectorStackBuilder {
 
     /// Enable cheatcodes with the given config.
     #[inline]
-    pub fn cheatcodes(mut self, config: Arc<CheatsConfig>) -> Self {
+    pub fn cheatcodes(mut self, config: Arc<CheatsConfig<BlockT, TxT, HardforkT>>) -> Self {
         self.cheatcodes = Some(config);
         self
     }
@@ -121,7 +123,7 @@ impl InspectorStackBuilder {
     /// EVM.
     ///
     /// See also [`revm::Evm::inspect_ref`] and [`revm::Evm::commit_ref`].
-    pub fn build(self) -> InspectorStack {
+    pub fn build(self) -> InspectorStack<BlockT, TxT, HardforkT> {
         let Self {
             block,
             gas_price,
@@ -215,12 +217,12 @@ macro_rules! call_inspectors_adjust_depth {
 }
 
 /// The collected results of [`InspectorStack`].
-pub struct InspectorData {
+pub struct InspectorData<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr> {
     pub logs: Vec<Log>,
     pub labels: AddressHashMap<String>,
     pub traces: Option<SparsedTraceArena>,
     pub coverage: Option<HitMaps>,
-    pub cheatcodes: Option<Cheatcodes>,
+    pub cheatcodes: Option<Cheatcodes<BlockT, TxT, HardforkT>>,
 }
 
 /// Contains data about the state of outer/main EVM which created and invoked
@@ -248,8 +250,8 @@ pub struct InnerContextData {
 /// [`InstructionResult::Continue`] (or equivalent) the remaining inspectors are
 /// not called.
 #[derive(Clone, Debug, Default)]
-pub struct InspectorStack {
-    pub cheatcodes: Option<Cheatcodes>,
+pub struct InspectorStack<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr> {
+    pub cheatcodes: Option<Cheatcodes<BlockT, TxT, HardforkT>>,
     pub coverage: Option<CoverageCollector>,
     pub fuzzer: Option<Fuzzer>,
     pub log_collector: Option<LogCollector>,
@@ -261,7 +263,9 @@ pub struct InspectorStack {
     pub inner_context_data: Option<InnerContextData>,
 }
 
-impl InspectorStack {
+impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
+    InspectorStack<BlockT, TxT, HardforkT>
+{
     /// Creates a new inspector stack.
     ///
     /// Note that the stack is empty by default, and you must add inspectors to
@@ -274,10 +278,7 @@ impl InspectorStack {
 
     /// Set variables from an environment for the relevant inspectors.
     #[inline]
-    pub fn set_env<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
-        &mut self,
-        env: EvmEnv<BlockT, TxT, HardforkT>,
-    ) {
+    pub fn set_env(&mut self, env: EvmEnv<BlockT, TxT, HardforkT>) {
         self.set_block(env.block.into());
         self.set_gas_price(env.tx.gas_price());
     }
@@ -300,7 +301,7 @@ impl InspectorStack {
 
     /// Set the cheatcodes inspector.
     #[inline]
-    pub fn set_cheatcodes(&mut self, cheatcodes: Cheatcodes) {
+    pub fn set_cheatcodes(&mut self, cheatcodes: Cheatcodes<BlockT, TxT, HardforkT>) {
         self.cheatcodes = Some(cheatcodes);
     }
 
@@ -365,7 +366,7 @@ impl InspectorStack {
 
     /// Collects all the data gathered during inspection into a single struct.
     #[inline]
-    pub fn collect(self) -> InspectorData {
+    pub fn collect(self) -> InspectorData<BlockT, TxT, HardforkT> {
         let traces = self
             .tracer
             .map(foundry_evm_traces::TracingInspector::into_traces)
@@ -399,9 +400,6 @@ impl InspectorStack {
     }
 
     fn do_call_end<
-        BlockT: BlockEnvTr,
-        TxT: TransactionEnvTr,
-        HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
         DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT> + DatabaseCommit,
     >(
@@ -439,9 +437,6 @@ impl InspectorStack {
     }
 
     fn transact_inner<
-        BlockT: BlockEnvTr,
-        TxT: TransactionEnvTr,
-        HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
         DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT> + DatabaseCommit,
     >(
@@ -598,9 +593,19 @@ impl InspectorStack {
     /// `self.in_inner_context`) Decreases sender nonce for CALLs to keep
     /// backwards compatibility Updates tx.origin to the value before
     /// entering inner context
-    fn adjust_evm_data_for_inner_context<DB: CheatcodeBackend>(
+    fn adjust_evm_data_for_inner_context<
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+    >(
         &mut self,
-        ecx: &mut EvmContext<&mut DB>,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
     ) {
         let inner_context_data = self
             .inner_context_data
@@ -614,7 +619,7 @@ impl InspectorStack {
         if !inner_context_data.is_create {
             sender_acc.info.nonce = inner_context_data.original_sender_nonce;
         }
-        ecx.env.tx.caller = inner_context_data.original_origin;
+        ecx.tx.set_caller(inner_context_data.original_origin);
     }
 }
 
@@ -633,7 +638,7 @@ impl<
     >
     Inspector<
         EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
-    > for InspectorStack
+    > for InspectorStack<BlockT, TxT, HardforkT>
 {
     fn initialize_interp(
         &mut self,

@@ -125,7 +125,7 @@ pub struct InvariantMetrics {
 
 /// Contains data collected during invariant test runs.
 #[derive(Debug)]
-pub struct InvariantTestData<BlockT, TxT, HardforkT> {
+pub struct InvariantTestData<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr> {
     // Consumed gas and calldata of every successful fuzz call.
     pub fuzz_cases: Vec<FuzzedCases>,
     // Data related to reverts or failed assertions of the test.
@@ -150,7 +150,7 @@ pub struct InvariantTestData<BlockT, TxT, HardforkT> {
 
 /// Contains invariant test data.
 #[derive(Debug)]
-pub struct InvariantTest<BlockT, TxT, HardforkT> {
+pub struct InvariantTest<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr> {
     // Fuzz state of invariant test.
     pub fuzz_state: EvmFuzzState,
     // Contracts fuzzed by the invariant test.
@@ -279,7 +279,12 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
 }
 
 /// Contains data for an invariant test run.
-pub struct InvariantTestRun<BlockT, TxT, HardforkT, ChainContextT> {
+pub struct InvariantTestRun<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+> {
     // Invariant run call sequence.
     pub inputs: Vec<BasicTxDetails>,
     // Current invariant run executor.
@@ -296,8 +301,12 @@ pub struct InvariantTestRun<BlockT, TxT, HardforkT, ChainContextT> {
     pub assume_rejects_counter: u32,
 }
 
-impl<BlockT, TxT, HardforkT, ChainContextT>
-    InvariantTestRun<BlockT, TxT, HardforkT, ChainContextT>
+impl<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+    > InvariantTestRun<BlockT, TxT, HardforkT, ChainContextT>
 {
     /// Instantiates an invariant test run.
     pub fn new(
@@ -324,7 +333,13 @@ impl<BlockT, TxT, HardforkT, ChainContextT>
 /// smart contracts with inputs, until it finds a counterexample sequence. The
 /// provided [`TestRunner`] contains all the configuration which can be
 /// overridden via [environment variables](proptest::test_runner::Config)
-pub struct InvariantExecutor<'a, BlockT, TxT, HardforkT, ChainContextT> {
+pub struct InvariantExecutor<
+    'a,
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+> {
     pub executor: Executor<BlockT, TxT, HardforkT, ChainContextT>,
     /// Proptest runner.
     runner: TestRunner,
