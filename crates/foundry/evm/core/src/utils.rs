@@ -2,7 +2,7 @@ use alloy_chains::NamedChain;
 use alloy_consensus::{BlockHeader, Typed2718};
 use alloy_json_abi::{Function, JsonAbi};
 use alloy_network::{AnyTxEnvelope, BlockResponse, Network};
-use alloy_primitives::{PrimitiveSignature, Selector, B256};
+use alloy_primitives::{PrimitiveSignature, Selector, TxKind, B256};
 use alloy_rpc_types::{Transaction as RpcTransaction, TransactionRequest};
 pub use revm::state::EvmState as StateChangeset;
 use revm::{
@@ -133,52 +133,56 @@ pub fn configure_tx_req_env<TxT: TransactionEnvTr>(
     tx_env: &mut TxT,
     tx: &TransactionRequest,
 ) -> eyre::Result<()> {
-    todo!("rpc conversion");
-    // let TransactionRequest {
-    //     nonce,
-    //     from,
-    //     to,
-    //     value,
-    //     gas_price,
-    //     gas,
-    //     max_fee_per_gas,
-    //     max_priority_fee_per_gas,
-    //     max_fee_per_blob_gas,
-    //     ref input,
-    //     chain_id,
-    //     ref blob_versioned_hashes,
-    //     ref access_list,
-    //     transaction_type: _,
-    //     ref authorization_list,
-    //     sidecar: _,
-    // } = *tx;
-    //
-    // // If no `to` field then set create kind: https://eips.ethereum.org/EIPS/eip-2470#deployment-transaction
-    // env.tx.kind = to.unwrap_or(TxKind::Create);
-    // env.tx.caller = from.ok_or_else(|| eyre::eyre!("missing `from` field"))?;
-    // env.tx.gas_limit = gas.ok_or_else(|| eyre::eyre!("missing `gas`
-    // field"))?; env.tx.nonce = nonce.unwrap_or_default();
-    // env.tx.value = value.unwrap_or_default();
-    // env.tx.data = input.input().cloned().unwrap_or_default();
-    // env.tx.chain_id = chain_id;
-    //
-    // // Type 1, EIP-2930
-    // env.tx.access_list = access_list.clone().unwrap_or_default();
-    //
-    // // Type 2, EIP-1559
-    // env.tx.gas_price = gas_price.or(max_fee_per_gas).unwrap_or_default();
-    // env.tx.gas_priority_fee = max_priority_fee_per_gas;
-    //
-    // // Type 3, EIP-4844
-    // env.tx.blob_hashes = blob_versioned_hashes.clone().unwrap_or_default();
-    // env.tx.max_fee_per_blob_gas = max_fee_per_blob_gas.unwrap_or_default();
-    //
-    // // Type 4, EIP-7702
-    // if let Some(authorization_list) = authorization_list {
-    //     env.tx.authorization_list = authorization_list.clone();
-    // }
-    //
-    // Ok(())
+    let TransactionRequest {
+        nonce,
+        from,
+        to,
+        value,
+        gas_price,
+        gas,
+        max_fee_per_gas,
+        max_priority_fee_per_gas,
+        max_fee_per_blob_gas,
+        ref input,
+        chain_id,
+        ref blob_versioned_hashes,
+        ref access_list,
+        transaction_type: _,
+        ref authorization_list,
+        sidecar: _,
+    } = *tx;
+
+    // If no `to` field then set create kind: https://eips.ethereum.org/EIPS/eip-2470#deployment-transaction
+    env.tx.kind = to.unwrap_or(TxKind::Create);
+    env.tx.caller = from.ok_or_else(|| eyre::eyre!("missing `from` field"))?;
+    env.tx.gas_limit = gas.ok_or_else(|| {
+        eyre::eyre!(
+            "missing `gas`
+    field"
+        )
+    })?;
+    env.tx.nonce = nonce.unwrap_or_default();
+    env.tx.value = value.unwrap_or_default();
+    env.tx.data = input.input().cloned().unwrap_or_default();
+    env.tx.chain_id = chain_id;
+
+    // Type 1, EIP-2930
+    env.tx.access_list = access_list.clone().unwrap_or_default();
+
+    // Type 2, EIP-1559
+    env.tx.gas_price = gas_price.or(max_fee_per_gas).unwrap_or_default();
+    env.tx.gas_priority_fee = max_priority_fee_per_gas;
+
+    // Type 3, EIP-4844
+    env.tx.blob_hashes = blob_versioned_hashes.clone().unwrap_or_default();
+    env.tx.max_fee_per_blob_gas = max_fee_per_blob_gas.unwrap_or_default();
+
+    // Type 4, EIP-7702
+    if let Some(authorization_list) = authorization_list {
+        env.tx.authorization_list = authorization_list.clone();
+    }
+
+    Ok(())
 }
 
 /// Get the gas used, accounting for refunds

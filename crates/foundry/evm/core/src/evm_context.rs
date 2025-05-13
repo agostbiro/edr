@@ -1,7 +1,7 @@
 use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
 use revm::{
     context::{BlockEnv, CfgEnv, Evm, JournalInner, TxEnv},
-    context_interface::{Block, JournalTr, Transaction},
+    context_interface::{transaction::AccessList, Block, JournalTr, Transaction},
     handler::{instructions::EthInstructions, EthPrecompiles},
     interpreter::interpreter::EthInterpreter,
     primitives::hardfork::SpecId,
@@ -91,19 +91,25 @@ pub trait ChainContextTr: Clone + std::fmt::Debug + Default {}
 impl<T> ChainContextTr for T where T: Clone + std::fmt::Debug + Default {}
 
 pub trait TransactionEnvMut {
+    fn set_access_list(&mut self, access_list: AccessList);
     fn set_blob_versioned_hashes(&mut self, blob_hashes: Vec<B256>);
     fn set_caller(&mut self, caller: Address);
     fn set_chain_id(&mut self, chain_id: Option<u64>);
     fn set_gas_limit(&mut self, gas_limit: u64);
     fn set_gas_price(&mut self, gas_price: u128);
     fn set_gas_priority_fee(&mut self, gas_priority_fee: Option<u128>);
-    fn set_kind(&mut self, kind: TxKind);
+    fn set_max_fee_per_blob_gas(&mut self, max_fee_per_blob_gas: u128);
     fn set_nonce(&mut self, nonce: u64);
     fn set_input(&mut self, input: Bytes);
+    fn set_transact_to(&mut self, kind: TxKind);
     fn set_value(&mut self, value: U256);
 }
 
 impl TransactionEnvMut for TxEnv {
+    fn set_access_list(&mut self, access_list: AccessList) {
+        self.access_list = access_list;
+    }
+
     fn set_blob_versioned_hashes(&mut self, blob_hashes: Vec<B256>) {
         self.blob_hashes = blob_hashes;
     }
@@ -128,8 +134,8 @@ impl TransactionEnvMut for TxEnv {
         self.gas_priority_fee = gas_priority_fee;
     }
 
-    fn set_kind(&mut self, kind: TxKind) {
-        self.kind = kind;
+    fn set_max_fee_per_blob_gas(&mut self, max_fee_per_blob_gas: u128) {
+        self.max_fee_per_blob_gas = max_fee_per_blob_gas;
     }
 
     fn set_nonce(&mut self, nonce: u64) {
@@ -138,6 +144,10 @@ impl TransactionEnvMut for TxEnv {
 
     fn set_input(&mut self, input: Bytes) {
         self.data = input;
+    }
+
+    fn set_transact_to(&mut self, kind: TxKind) {
+        self.kind = kind;
     }
 
     fn set_value(&mut self, value: U256) {

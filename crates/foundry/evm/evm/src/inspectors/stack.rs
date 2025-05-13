@@ -506,7 +506,7 @@ impl<
         // ecx.env.tx.caller = caller;
         context.tx.set_caller(caller);
         // ecx.env.tx.transact_to = transact_to;
-        context.tx.set_kind(transact_to);
+        context.tx.set_transact_to(transact_to);
         // ecx.env.tx.data = input;
         context.tx.set_input(input);
         // ecx.env.tx.value = value;
