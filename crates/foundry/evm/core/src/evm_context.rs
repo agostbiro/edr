@@ -1,6 +1,6 @@
 use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
 use revm::{
-    context::{BlockEnv, CfgEnv, Evm, JournalInner, TxEnv},
+    context::{transaction::SignedAuthorization, BlockEnv, CfgEnv, Evm, JournalInner, TxEnv},
     context_interface::{transaction::AccessList, Block, JournalTr, Transaction},
     handler::{instructions::EthInstructions, EthPrecompiles},
     interpreter::interpreter::EthInterpreter,
@@ -92,6 +92,7 @@ impl<T> ChainContextTr for T where T: Clone + std::fmt::Debug + Default {}
 
 pub trait TransactionEnvMut {
     fn set_access_list(&mut self, access_list: AccessList);
+    fn set_authorization_list(&mut self, authorization_list: Vec<SignedAuthorization>);
     fn set_blob_versioned_hashes(&mut self, blob_hashes: Vec<B256>);
     fn set_caller(&mut self, caller: Address);
     fn set_chain_id(&mut self, chain_id: Option<u64>);
@@ -108,6 +109,10 @@ pub trait TransactionEnvMut {
 impl TransactionEnvMut for TxEnv {
     fn set_access_list(&mut self, access_list: AccessList) {
         self.access_list = access_list;
+    }
+
+    fn set_authorization_list(&mut self, authorization_list: Vec<SignedAuthorization>) {
+        self.authorization_list = authorization_list;
     }
 
     fn set_blob_versioned_hashes(&mut self, blob_hashes: Vec<B256>) {
