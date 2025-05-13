@@ -21,7 +21,7 @@ use revm_inspectors::tracing::{types::CallTraceStep, CallTraceArena};
 use crate::executors::EvmError;
 
 /// Stack trace generation error during re-execution.
-#[derive(Clone, Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum StackTraceError {
     #[error(transparent)]
     ContractDecoder(#[from] ContractDecoderError),
@@ -225,7 +225,7 @@ fn is_calllike_op(step: &CallTraceStep) -> bool {
 }
 
 /// The possible outcomes from computing stack traces.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum StackTraceResult {
     /// The stack trace result
     Success(Vec<StackTraceEntry>),

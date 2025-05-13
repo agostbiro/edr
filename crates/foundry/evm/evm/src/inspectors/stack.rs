@@ -177,13 +177,13 @@ macro_rules! call_inspectors {
 macro_rules! call_inspectors_adjust_depth {
     (#[no_ret] [$($inspector:expr),+ $(,)?], |$id:ident $(,)?| $call:expr, $self:ident, $data:ident $(,)?) => {
         if $self.in_inner_context {
-            $data.journaled_state.depth += 1;
+            $data.journaled_state.inner.depth += 1;
             $(
                 if let Some($id) = $inspector {
                     $call
                 }
             )+
-            $data.journaled_state.depth -= 1;
+            $data.journaled_state.inner.depth -= 1;
         } else {
             $(
                 if let Some($id) = $inspector {
@@ -194,16 +194,16 @@ macro_rules! call_inspectors_adjust_depth {
     };
     ([$($inspector:expr),+ $(,)?], |$id:ident $(,)?| $call:expr, $self:ident, $data:ident $(,)?) => {
         if $self.in_inner_context {
-            $data.journaled_state.depth += 1;
+            $data.journaled_state.inner.depth += 1;
             $(
                 if let Some($id) = $inspector {
                     if let Some(result) = $call {
-                        $data.journaled_state.depth -= 1;
+                        $data.journaled_state.inner.depth -= 1;
                         return result;
                     }
                 }
             )+
-            $data.journaled_state.depth -= 1;
+            $data.journaled_state.inner.depth -= 1;
         } else {
             $(
                 if let Some($id) = $inspector {
@@ -433,7 +433,7 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
             ecx
         );
 
-        outcome
+        outcome.clone()
     }
 
     fn transact_inner<
@@ -728,7 +728,7 @@ impl<
                 &mut self.log_collector,
                 &mut self.cheatcodes,
             ],
-            |inspector| inspector.log(interpreter, ecx, log),
+            |inspector| inspector.log(interpreter, ecx, log.clone()),
             self,
             ecx
         );
@@ -884,23 +884,25 @@ impl<
         let result = outcome.result.result;
 
         call_inspectors_adjust_depth!(
+            #[no_ret]
             [&mut self.tracer, &mut self.cheatcodes],
             |inspector| {
-                let previous_outcome = outcome.clone();
-                let new_outcome = inspector.create_end(ecx, call, outcome);
+                // TODO this might be wrong
+                // let previous_outcome = outcome.clone();
+                // let new_outcome = inspector.create_end(ecx, call, outcome);
+                inspector.create_end(ecx, call, outcome);
 
-                // If the inspector returns a different status or a revert with a non-empty
-                // message, we assume it wants to tell us something
-                let different = outcome.result.result != result
-                    || (outcome.result.result == InstructionResult::Revert
-                        && outcome.output() != previous_outcome.output());
-                different.then_some(outcome.clone())
+                // If the inspector returns a different status or a revert with
+                // a non-empty message, we assume it wants to
+                // tell us something let different =
+                // outcome.result.result != result     || (outcome.result.result
+                // == InstructionResult::Revert         &&
+                // outcome.output() != previous_outcome.output());
+                // different.then_some(outcome.clone())
             },
             self,
             ecx
         );
-
-        outcome
     }
 
     fn selfdestruct(&mut self, contract: Address, target: Address, value: U256) {
