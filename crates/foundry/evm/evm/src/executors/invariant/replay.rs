@@ -230,11 +230,11 @@ pub struct ReplayErrorArgs<
 /// Replays the error case, shrinks the failing sequence and collects all
 /// necessary traces.
 pub fn replay_error<
+    NestedTraceDecoderT: NestedTraceDecoder<revm::context::result::HaltReason>,
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
     HardforkT: HardforkTr,
     ChainContextT: ChainContextTr,
-    NestedTraceDecoderT: NestedTraceDecoder<revm::context::result::HaltReason>,
 >(
     args: ReplayErrorArgs<'_, NestedTraceDecoderT, BlockT, TxT, HardforkT, ChainContextT>,
 ) -> Result<ReplayResult> {
