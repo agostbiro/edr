@@ -1486,7 +1486,7 @@ impl<
         // roll the fork to the transaction's block or latest if it's pending
         self.roll_fork(Some(id), fork_block, context)?;
 
-        update_env_block(&mut context.block, &block);
+        update_env_block(context.block, &block);
 
         // replay all transactions that came before
         self.replay_until(id, transaction, context)?;
@@ -1525,7 +1525,7 @@ impl<
         let (_fork_block, block) =
             self.get_block_number_and_block_for_transaction(id, transaction)?;
         let mut env = context.to_owned_env();
-        update_env_block(&mut env, &block);
+        update_env_block(&mut env.block, &block);
         let mut env = self.env_with_handler_cfg(env);
 
         let mut modified_context = EvmContext {
@@ -2245,19 +2245,17 @@ fn is_contract_in_state(journaled_state: &JournalInner<JournalEntry>, acc: Addre
 }
 
 /// Updates the env's block with the block's data
-fn update_env_block<BlockT>(block_env: &mut BlockT, block: &AnyRpcBlock) {
-    todo!()
-    // env.block.timestamp = block.header.timestamp;
-    // env.block.beneficiary = block.header.beneficiary;
-    // env.block.difficulty = block.header.difficulty;
-    // env.block.prevrandao = Some(block.header.mix_hash.unwrap_or_default());
-    // env.block.basefee = block.header.base_fee_per_gas.unwrap_or_default();
-    // env.block.gas_limit = block.header.gas_limit;
-    // env.block.number = block.header.number;
-    // if let Some(excess_blob_gas) = block.header.excess_blob_gas {
-    //     env.block.blob_excess_gas_and_price =
-    //         Some(BlobExcessGasAndPrice::new(excess_blob_gas, false));
-    // }
+fn update_env_block<BlockT: BlockEnvTr>(block_env: &mut BlockT, block: &AnyRpcBlock) {
+    block_env.set_timestamp(block.header.timestamp);
+    block_env.set_beneficiary(block.header.beneficiary);
+    block_env.set_difficulty(block.header.difficulty);
+    block_env.set_prevrandao(block.header.mix_hash.unwrap_or_default());
+    block_env.set_basefee(block.header.base_fee_per_gas.unwrap_or_default());
+    block_env.set_gas_limit(block.header.gas_limit);
+    block_env.set_block_number(block.header.number);
+    if let Some(excess_blob_gas) = block.header.excess_blob_gas {
+        block_env.set_blob_excess_gas_and_price(excess_blob_gas, false);
+    }
 }
 
 /// Executes the given transaction and commits state changes to the database
