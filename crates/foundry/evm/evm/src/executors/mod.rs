@@ -691,7 +691,7 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr> std::ops:
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum EvmError<BlockT: BlockEnvTr + std::fmt::Debug, TxT: TransactionEnvTr + std::fmt::Debug, HardforkT: HardforkTr> {
+pub enum EvmError<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr> {
     /// Error which occurred during execution of a transaction
     #[error(transparent)]
     Execution(#[from] Box<ExecutionErr<BlockT, TxT, HardforkT>>),
@@ -817,12 +817,12 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr> Default
             state_changeset: HashMap::default(),
             env: EvmEnv::new_with_spec_id(HardforkT::default()),
             cheatcodes: Option::default(),
-            out: None
+            out: None,
         }
     }
 }
 
-impl<BlockT: BlockEnvTr + std::fmt::Debug, TxT: TransactionEnvTr + std::fmt::Debug, HardforkT: HardforkTr>
+impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
     RawCallResult<BlockT, TxT, HardforkT>
 {
     /// Unpacks an EVM result.
@@ -960,9 +960,14 @@ fn convert_executed_result<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT:
         ExecutionResult::Halt { reason, gas_used } => (reason.into(), 0_u64, gas_used, None),
     };
 
-    // In REVM 21, the gas calculation interface is different
-    // We'll use a simple initial gas value instead
-    let gas = revm::interpreter::gas::Gas::new(env.tx.gas_limit());
+    let gas = revm::interpreter::gas::calculate_initial_tx_gas(
+        env.spec_id(),
+        env.tx.input(),
+        env.tx.kind().is_create(),
+        &env.tx.access_list(),
+        0,
+        0,
+    );
 
     let result = match &out {
         Some(Output::Call(data)) => data.clone(),
@@ -993,7 +998,6 @@ fn convert_executed_result<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT:
         env,
         cheatcodes,
         out,
-        
     })
 }
 

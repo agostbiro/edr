@@ -7,6 +7,7 @@ use eyre::Result;
 use foundry_evm_core::{
     contracts::{ContractsByAddress, ContractsByArtifact},
     decode::RevertDecoder,
+    evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr},
 };
 use foundry_evm_coverage::HitMaps;
 use foundry_evm_fuzz::{
@@ -58,10 +59,10 @@ pub struct ReplayResult {
 /// scenario.
 pub fn replay_run<
     NestedTraceDecoderT: NestedTraceDecoder,
-    BlockT,
-    TxT,
-    HardforkT,
-    ChainContextT,
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
 >(
     args: ReplayRunArgs<'_, NestedTraceDecoderT, BlockT, TxT, HardforkT, ChainContextT>,
 ) -> Result<ReplayResult> {
@@ -215,10 +216,10 @@ pub struct ReplayErrorArgs<'a, NestedTraceDecoderT, BlockT, TxT, HardforkT, Chai
 /// Replays the error case, shrinks the failing sequence and collects all
 /// necessary traces.
 pub fn replay_error<
-    BlockT,
-    TxT,
-    HardforkT,
-    ChainContextT,
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
     NestedTraceDecoderT: NestedTraceDecoder,
 >(
     args: ReplayErrorArgs<'_, NestedTraceDecoderT, BlockT, TxT, HardforkT, ChainContextT>,
