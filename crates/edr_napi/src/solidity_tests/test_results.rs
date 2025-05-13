@@ -85,7 +85,7 @@ pub struct TestResult {
     #[napi(readonly)]
     pub duration_ms: BigInt,
 
-    stack_trace_result: Option<StackTraceResult>,
+    stack_trace_result: Option<Arc<StackTraceResult>>,
 }
 
 /// The stack trace result

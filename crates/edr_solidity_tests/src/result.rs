@@ -3,6 +3,7 @@
 use std::{
     collections::BTreeMap,
     fmt::{self, Write},
+    sync::Arc,
     time::Duration,
 };
 
@@ -348,7 +349,7 @@ pub struct TestResult {
     /// If the heuristic failed the vec is set but emtpy.
     /// Error if there was an error computing the stack trace.
     #[serde(skip)]
-    pub stack_trace_result: Option<StackTraceResult>,
+    pub stack_trace_result: Option<Arc<StackTraceResult>>,
 }
 
 impl fmt::Display for TestResult {

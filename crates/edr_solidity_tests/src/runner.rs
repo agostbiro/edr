@@ -271,7 +271,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
                         coverage: setup.coverage,
                         labeled_addresses: setup.labeled_addresses,
                         duration: elapsed,
-                        stack_trace_result: Some(stack_trace_result),
+                        stack_trace_result: Some(Arc::new(stack_trace_result)),
                     },
                 )]
                 .into(),
@@ -707,7 +707,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
                     self.re_run_test_for_stack_traces(func, setup.has_setup_method)
                         .into()
                 };
-            Some(stack_trace_result)
+            Some(Arc::new(stack_trace_result))
         } else {
             None
         };
@@ -902,7 +902,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
                         reverts: 0,
                     },
                     duration,
-                    stack_trace_result: Some(stack_trace_result),
+                    stack_trace_result: Some(Arc::new(stack_trace_result)),
                     ..Default::default()
                 };
             }
@@ -979,7 +979,8 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
                             if reason.is_some() && revert_reason.is_none() {
                                 tracing::warn!(?invariant_contract.invariant_function, "Failed to compute stack trace");
                             } else {
-                                stack_trace = stack_trace_result.map(StackTraceResult::from);
+                                stack_trace =
+                                    stack_trace_result.map(StackTraceResult::from).map(Arc::new);
                                 reason = revert_reason;
                             }
                         }
@@ -1131,7 +1132,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
                     )
                     .into()
                 };
-                Some(stack_trace_result)
+                Some(Arc::new(stack_trace_result))
             } else {
                 None
             };
@@ -1324,7 +1325,10 @@ fn try_to_replay_recorded_failures<NestedTraceDecoderT: NestedTraceDecoder<HaltR
                     show_solidity: invariant_config.show_solidity,
                 })
                 .map_or(None, |result| {
-                    result.stack_trace_result.map(StackTraceResult::from)
+                    result
+                        .stack_trace_result
+                        .map(StackTraceResult::from)
+                        .map(Arc::new)
                 });
                 let reason = if replayed_entirely {
                     Some(format!(
