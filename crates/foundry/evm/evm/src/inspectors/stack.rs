@@ -3,18 +3,20 @@ use std::sync::Arc;
 use alloy_primitives::{map::AddressHashMap, Address, Bytes, Log, TxKind, U256};
 use foundry_evm_core::{
     backend::{update_state, CheatcodeBackend},
-    evm_context::{BlockEnvTr, ChainContextTr, EvmEnv, HardforkTr, TransactionEnvTr},
+    evm_context::{
+        split_context, BlockEnvTr, ChainContextTr, EvmEnv, HardforkTr, TransactionEnvTr,
+    },
 };
 use foundry_evm_coverage::HitMaps;
 use foundry_evm_traces::SparsedTraceArena;
 use revm::{
     context::{result::ExecutionResult, BlockEnv, CfgEnv, Context as EvmContext},
-    context_interface::result::Output,
+    context_interface::{result::Output, JournalTr},
     interpreter::{
         CallInputs, CallOutcome, CallScheme, CreateInputs, CreateOutcome, Gas, InstructionResult,
         Interpreter, InterpreterResult,
     },
-    DatabaseCommit, Inspector, Journal,
+    DatabaseCommit, ExecuteEvm, Inspector, Journal,
 };
 
 use super::{
@@ -24,12 +26,19 @@ use super::{
 
 #[derive(Clone, Debug, Default)]
 #[must_use = "builders do nothing unless you call `build` on them"]
-pub struct InspectorStackBuilder<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr> {
+pub struct InspectorStackBuilder<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+> {
     /// The block environment.
     ///
     /// Used in the cheatcode handler to overwrite the block environment
     /// separately from the execution block environment.
     pub block: Option<BlockEnv>,
+    /// The multichain context
+    pub chain_context: Option<ChainContextT>,
     /// The gas price.
     ///
     /// Used in the cheatcode handler to overwrite the gas price separately from
@@ -52,8 +61,12 @@ pub struct InspectorStackBuilder<BlockT: BlockEnvTr, TxT: TransactionEnvTr, Hard
     pub enable_isolation: bool,
 }
 
-impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
-    InspectorStackBuilder<BlockT, TxT, HardforkT>
+impl<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+    > InspectorStackBuilder<BlockT, TxT, HardforkT, ChainContextT>
 {
     /// Create a new inspector stack builder.
     #[inline]
@@ -123,9 +136,10 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
     /// EVM.
     ///
     /// See also [`revm::Evm::inspect_ref`] and [`revm::Evm::commit_ref`].
-    pub fn build(self) -> InspectorStack<BlockT, TxT, HardforkT> {
+    pub fn build(self) -> InspectorStack<BlockT, TxT, HardforkT, ChainContextT> {
         let Self {
             block,
+            chain_context,
             gas_price,
             cheatcodes,
             fuzzer,
@@ -152,6 +166,9 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
         // environment, must come after all of the inspectors
         if let Some(block) = block {
             stack.set_block(block);
+        }
+        if let Some(chain_context) = chain_context {
+            stack.set_chain_context(chain_context);
         }
         if let Some(gas_price) = gas_price {
             stack.set_gas_price(gas_price);
@@ -250,21 +267,31 @@ pub struct InnerContextData {
 /// [`InstructionResult::Continue`] (or equivalent) the remaining inspectors are
 /// not called.
 #[derive(Clone, Debug, Default)]
-pub struct InspectorStack<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr> {
+pub struct InspectorStack<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+> {
     pub cheatcodes: Option<Cheatcodes<BlockT, TxT, HardforkT>>,
     pub coverage: Option<CoverageCollector>,
     pub fuzzer: Option<Fuzzer>,
     pub log_collector: Option<LogCollector>,
     pub tracer: Option<TracingInspector>,
     pub enable_isolation: bool,
+    pub chain_context: ChainContextT,
 
     /// Flag marking if we are in the inner EVM context.
     pub in_inner_context: bool,
     pub inner_context_data: Option<InnerContextData>,
 }
 
-impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
-    InspectorStack<BlockT, TxT, HardforkT>
+impl<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+    > InspectorStack<BlockT, TxT, HardforkT, ChainContextT>
 {
     /// Creates a new inspector stack.
     ///
@@ -289,6 +316,12 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
         if let Some(cheatcodes) = &mut self.cheatcodes {
             cheatcodes.block = Some(block);
         }
+    }
+
+    /// Sets the multichain context.
+    #[inline]
+    pub fn set_chain_context(&mut self, chain_context: ChainContextT) {
+        self.chain_context = chain_context;
     }
 
     /// Sets the gas price for the relevant inspectors.
@@ -400,7 +433,6 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
     }
 
     fn do_call_end<
-        ChainContextT: ChainContextTr,
         DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT> + DatabaseCommit,
     >(
         &mut self,
@@ -437,7 +469,6 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
     }
 
     fn transact_inner<
-        ChainContextT: ChainContextTr,
         DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT> + DatabaseCommit,
     >(
         &mut self,
@@ -461,52 +492,71 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
 
         let nonce = ecx
             .journaled_state
-            .load_account(caller, &mut ecx.db)
+            .load_account(caller)
             .expect("failed to load caller")
             .info
             .nonce;
 
-        let cached_env = ecx.env.clone();
+        let (mut db, mut context) = split_context(ecx);
 
-        ecx.env.block.basefee = U256::ZERO;
-        ecx.env.tx.caller = caller;
-        ecx.env.tx.transact_to = transact_to;
-        ecx.env.tx.data = input;
-        ecx.env.tx.value = value;
-        ecx.env.tx.nonce = Some(nonce);
+        let cached_env = context.to_owned_env();
+
+        // ecx.env.block.basefee = U256::ZERO;
+        context.block.set_basefee(0);
+        // ecx.env.tx.caller = caller;
+        context.tx.set_caller(caller);
+        // ecx.env.tx.transact_to = transact_to;
+        context.tx.set_kind(transact_to);
+        // ecx.env.tx.data = input;
+        context.tx.set_input(input);
+        // ecx.env.tx.value = value;
+        context.tx.set_value(value);
+        // ecx.env.tx.nonce = Some(nonce);
+        context.tx.set_nonce(nonce);
         // Add 21000 to the gas limit to account for the base cost of transaction.
-        ecx.env.tx.gas_limit = gas_limit + 21000;
+        // ecx.env.tx.gas_limit = gas_limit + 21000;
+        context.tx.set_gas_limit(gas_limit + 21000);
         // If we haven't disabled gas limit checks, ensure that transaction gas limit
         // will not exceed block gas limit.
-        if !ecx.env.cfg.disable_block_gas_limit {
-            ecx.env.tx.gas_limit =
-                std::cmp::min(ecx.env.tx.gas_limit, ecx.env.block.gas_limit.to());
+        if !context.cfg.disable_block_gas_limit {
+            // ecx.env.tx.gas_limit =
+            //     std::cmp::min(ecx.env.tx.gas_limit, ecx.env.block.gas_limit.to());
+            context.tx.set_gas_limit(std::cmp::min(
+                context.tx.gas_limit(),
+                context.block.gas_limit(),
+            ));
         }
-        ecx.env.tx.gas_price = U256::ZERO;
+        // ecx.env.tx.gas_price = U256::ZERO;
+        context.tx.set_gas_price(0);
 
         self.inner_context_data = Some(InnerContextData {
-            sender: ecx.env.tx.caller,
-            original_origin: cached_env.tx.caller,
+            sender: context.tx.caller(),
+            original_origin: cached_env.tx.caller(),
             original_sender_nonce: nonce,
             is_create: matches!(transact_to, TxKind::Create),
         });
         self.in_inner_context = true;
 
-        let env = EnvWithHandlerCfg::new_with_spec_id(ecx.env.clone(), ecx.spec_id());
+        let env = context.to_owned_env();
+        let tx = env.tx.clone();
         let res = {
-            let mut evm = crate::utils::new_evm_with_inspector(&mut *ecx.db, env, &mut *self);
-            let res = evm.transact();
+            let chain_context = self.chain_context.clone();
+            let mut evm =
+                crate::utils::new_evm_with_inspector(&mut *db, env, &mut *self, chain_context);
+            let res = evm.transact(tx);
 
             // need to reset the env in case it was modified via cheatcodes during execution
-            ecx.env = evm.context.evm.inner.env;
+            *context.cfg = evm.cfg.clone();
+            *context.block = evm.block.clone();
+
+            *context.tx = cached_env.tx;
+            context.block.set_basefee(cached_env.block.basefee());
+
             res
         };
 
         self.in_inner_context = false;
         self.inner_context_data = None;
-
-        ecx.env.tx = cached_env.tx;
-        ecx.env.block.basefee = cached_env.block.basefee;
 
         let mut gas = Gas::new(gas_limit);
 
@@ -521,10 +571,10 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
         };
 
         // Commit changes after transaction
-        ecx.db.commit(res.state.clone());
+        (&mut *db).commit(res.state.clone());
 
         // Update both states with new DB data after commit.
-        if let Err(e) = update_state(&mut ecx.journaled_state.state, &mut ecx.db, None) {
+        if let Err(e) = update_state(&mut context.journaled_state.state, &mut *db, None) {
             let res = InterpreterResult {
                 result: InstructionResult::Revert,
                 output: Bytes::from(e.to_string()),
@@ -532,7 +582,7 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
             };
             return (res, None);
         }
-        if let Err(e) = update_state(&mut res.state, &mut ecx.db, None) {
+        if let Err(e) = update_state(&mut res.state, &mut *db, None) {
             let res = InterpreterResult {
                 result: InstructionResult::Revert,
                 output: Bytes::from(e.to_string()),
@@ -594,7 +644,6 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
     /// backwards compatibility Updates tx.origin to the value before
     /// entering inner context
     fn adjust_evm_data_for_inner_context<
-        ChainContextT: ChainContextTr,
         DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &mut self,
@@ -638,7 +687,7 @@ impl<
     >
     Inspector<
         EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
-    > for InspectorStack<BlockT, TxT, HardforkT>
+    > for InspectorStack<BlockT, TxT, HardforkT, ChainContextT>
 {
     fn initialize_interp(
         &mut self,

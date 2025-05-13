@@ -89,7 +89,7 @@ pub struct Executor<
     /// The EVM environment.
     pub env: EvmEnv<BlockT, TxT, HardforkT>,
     /// The Revm inspector stack.
-    pub inspector: InspectorStack<BlockT, TxT, HardforkT>,
+    pub inspector: InspectorStack<BlockT, TxT, HardforkT, ChainContextT>,
     chain_context: ChainContextT,
     /// The gas limit for calls and deployments. This is different from the gas
     /// limit imposed by the passed in environment, as those limits are used
@@ -109,7 +109,7 @@ impl<
         mut backend: Backend<BlockT, TxT, HardforkT, ChainContextT>,
         env: EvmEnv<BlockT, TxT, HardforkT>,
         chain_context: ChainContextT,
-        inspector: InspectorStack<BlockT, TxT, HardforkT>,
+        inspector: InspectorStack<BlockT, TxT, HardforkT, ChainContextT>,
         gas_limit: u64,
     ) -> Self {
         // Need to create a non-empty contract on the cheatcodes address so
@@ -935,9 +935,14 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr> std::ops:
 
 /// Converts the data aggregated in the `inspector` and `call` to a
 /// `RawCallResult`
-fn convert_executed_result<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+fn convert_executed_result<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+>(
     env: EvmEnv<BlockT, TxT, HardforkT>,
-    inspector: InspectorStack<BlockT, TxT, HardforkT>,
+    inspector: InspectorStack<BlockT, TxT, HardforkT, ChainContextT>,
     result: ResultAndState,
     has_snapshot_failure: bool,
 ) -> eyre::Result<RawCallResult<BlockT, TxT, HardforkT>> {

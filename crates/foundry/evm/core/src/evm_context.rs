@@ -98,6 +98,7 @@ pub trait TransactionEnvMut {
     fn set_gas_price(&mut self, gas_price: u128);
     fn set_gas_priority_fee(&mut self, gas_priority_fee: Option<u128>);
     fn set_kind(&mut self, kind: TxKind);
+    fn set_nonce(&mut self, nonce: u64);
     fn set_input(&mut self, input: Bytes);
     fn set_value(&mut self, value: U256);
 }
@@ -129,6 +130,10 @@ impl TransactionEnvMut for TxEnv {
 
     fn set_kind(&mut self, kind: TxKind) {
         self.kind = kind;
+    }
+
+    fn set_nonce(&mut self, nonce: u64) {
+        self.nonce = nonce;
     }
 
     fn set_input(&mut self, input: Bytes) {
