@@ -68,7 +68,7 @@ impl InspectorStackBuilder {
 
     /// Set the gas price.
     #[inline]
-    pub fn gas_price(mut self, gas_price: U256) -> Self {
+    pub fn gas_price(mut self, gas_price: u128) -> Self {
         self.gas_price = Some(gas_price);
         self
     }
@@ -398,9 +398,22 @@ impl InspectorStack {
         }
     }
 
-    fn do_call_end<DB: CheatcodeBackend>(
+    fn do_call_end<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT> + DatabaseCommit,
+    >(
         &mut self,
-        ecx: &mut EvmContext<&mut DB>,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
         inputs: &CallInputs,
         outcome: &mut CallOutcome,
     ) -> CallOutcome {
@@ -408,14 +421,15 @@ impl InspectorStack {
         call_inspectors_adjust_depth!(
             [&mut self.fuzzer, &mut self.tracer, &mut self.cheatcodes,],
             |inspector| {
-                let new_outcome = inspector.call_end(ecx, inputs, outcome.clone());
+                let previous_outcome = outcome.clone();
+                inspector.call_end(ecx, inputs, outcome);
 
                 // If the inspector returns a different status or a revert with a non-empty
                 // message, we assume it wants to tell us something
-                let different = new_outcome.result.result != result
-                    || (new_outcome.result.result == InstructionResult::Revert
-                        && new_outcome.output() != outcome.output());
-                different.then_some(new_outcome)
+                let different = outcome.result.result != result
+                    || (outcome.result.result == InstructionResult::Revert
+                        && outcome.output() != previous_outcome.output());
+                different.then_some(outcome.clone())
             },
             self,
             ecx
@@ -424,18 +438,31 @@ impl InspectorStack {
         outcome
     }
 
-    fn transact_inner<DB: CheatcodeBackend + DatabaseCommit>(
+    fn transact_inner<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT> + DatabaseCommit,
+    >(
         &mut self,
-        ecx: &mut EvmContext<&mut DB>,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
         transact_to: TxKind,
         caller: Address,
         input: Bytes,
         gas_limit: u64,
         value: U256,
     ) -> (InterpreterResult, Option<Address>) {
-        let ecx = &mut ecx.inner;
-
-        ecx.db.commit(ecx.journaled_state.state.clone());
+        ecx.journaled_state
+            .database
+            .commit(ecx.journaled_state.state.clone());
 
         let nonce = ecx
             .journaled_state
@@ -687,7 +714,7 @@ impl<
             Journal<DatabaseT>,
             ChainContextT,
         >,
-        log: &Log,
+        log: Log,
     ) {
         call_inspectors_adjust_depth!(
             #[no_ret]
@@ -773,11 +800,11 @@ impl<
         >,
         inputs: &CallInputs,
         outcome: &mut CallOutcome,
-    ) -> CallOutcome {
+    ) {
         // Inner context calls with depth 0 are being dispatched as top-level calls with
         // depth 1. Avoid processing twice.
         if self.in_inner_context && ecx.journaled_state.depth == 0 {
-            return outcome;
+            return;
         }
 
         let outcome = self.do_call_end(ecx, inputs, outcome);
@@ -789,8 +816,6 @@ impl<
                 cheats.on_revert(ecx);
             }
         }
-
-        outcome
     }
 
     fn create(
