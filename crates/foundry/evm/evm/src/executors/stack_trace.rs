@@ -16,6 +16,10 @@ use foundry_evm_core::{
     evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr},
 };
 use foundry_evm_traces::{SparsedTraceArena, TraceKind};
+use revm::{
+    context::result::HaltReason,
+    interpreter::{InternalResult, SuccessOrHalt},
+};
 use revm_inspectors::tracing::{types::CallTraceStep, CallTraceArena};
 
 use crate::executors::EvmError;
@@ -200,13 +204,17 @@ fn convert_instruction_result_to_exit_code(
 ) -> ExitCode<revm::context::result::HaltReason> {
     let success_or_halt: revm::interpreter::SuccessOrHalt<revm::context::result::HaltReason> =
         result.into();
-    if success_or_halt.is_success() {
-        ExitCode::Success
-    } else if success_or_halt.is_revert() {
-        ExitCode::Revert
-    } else {
-        let halt = success_or_halt.to_halt().expect("must be a halt");
-        ExitCode::Halt(halt)
+    match success_or_halt {
+        SuccessOrHalt::Success(_) => ExitCode::Success,
+        SuccessOrHalt::Revert => ExitCode::Revert,
+        SuccessOrHalt::Halt(halt) => ExitCode::Halt(halt),
+        SuccessOrHalt::FatalExternalError => ExitCode::FatalExternalError,
+        SuccessOrHalt::Internal(result) => match result {
+            InternalResult::InternalContinue => ExitCode::InternalContinue,
+            InternalResult::InternalCallOrCreate => ExitCode::InternalCallOrCreate,
+            InternalResult::CreateInitCodeStartingEF00 => ExitCode::CreateInitCodeStartingEF00,
+            InternalResult::InvalidExtDelegateCallTarget => ExitCode::InvalidExtDelegateCallTarget,
+        },
     }
 }
 
