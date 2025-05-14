@@ -23,7 +23,7 @@ use revm::{
     precompile::{PrecompileSpecId, Precompiles},
     primitives::{HashMap as Map, Log, KECCAK_EMPTY},
     state::{Account, AccountInfo, EvmState, EvmStorageSlot},
-    Database, DatabaseCommit, ExecuteEvm, InspectEvm, Inspector, Journal, JournalEntry,
+    Database, DatabaseCommit, InspectEvm, Inspector, Journal, JournalEntry,
 };
 use serde::{Deserialize, Serialize};
 
@@ -1006,7 +1006,9 @@ impl<
         let mut evm =
             crate::utils::new_evm_with_inspector(self, env.clone(), inspector, chain_context);
 
-        let res = evm.transact(env.tx.clone()).wrap_err("EVM error")?;
+        let res = evm
+            .inspect_replay()
+            .wrap_err("backend: failed while inspecting")?;
 
         *env = EvmEnv::from(evm.data.ctx);
 
@@ -2292,11 +2294,10 @@ where
         let db = Backend::new_with_fork(fork_id, fork, journaled_state);
 
         let env = context.to_owned_env();
-        let tx = env.tx.clone();
         let chain = context.chain_context.clone();
 
-        let mut evm = crate::utils::new_evm_with_inspector(db, env, inspector, chain);
-        evm.transact(tx)
+        crate::utils::new_evm_with_inspector(db, env, inspector, chain)
+            .inspect_replay()
             .wrap_err("backend: failed committing transaction")?
     };
     trace!(elapsed = ?now.elapsed(), "transacted transaction");

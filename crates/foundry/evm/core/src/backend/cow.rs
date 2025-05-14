@@ -14,7 +14,7 @@ use revm::{
     handler::PrecompileProvider,
     primitives::HashMap as Map,
     state::{Account, AccountInfo},
-    Database, DatabaseCommit, ExecuteEvm, InspectEvm, JournalEntry,
+    Database, DatabaseCommit, InspectEvm, JournalEntry,
 };
 
 use super::{BackendError, CheatcodeInspectorTr};
@@ -101,9 +101,17 @@ impl<
         let mut evm =
             crate::utils::new_evm_with_inspector(self, env.clone(), inspector, chain_context);
 
-        let res = evm.transact(env.tx.clone()).wrap_err("EVM error")?;
+        let res = evm
+            .inspect_replay()
+            .wrap_err("backend: failed while inspecting")?;
 
         *env = EvmEnv::from(evm.data.ctx);
+
+        // let Context { block, tx, cfg, .. } = evm.data.ctx;
+        //
+        // *env.block = block;
+        // *env.tx = tx;
+        // *env.cfg = cfg;
 
         Ok(res)
     }
