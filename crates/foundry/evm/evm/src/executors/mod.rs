@@ -194,7 +194,6 @@ impl<
     pub fn set_nonce(&mut self, address: Address, nonce: u64) -> BackendResult<&mut Self> {
         let mut account = self.backend.basic_ref(address)?.unwrap_or_default();
         account.nonce = nonce;
-
         self.backend.insert_account_info(address, account);
         Ok(self)
     }
