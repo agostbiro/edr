@@ -621,6 +621,9 @@ impl<
         data: Bytes,
         value: U256,
     ) -> EvmEnv<BlockT, TxT, HardforkT> {
+        let mut cfg = self.env.cfg.clone();
+        cfg.spec = self.spec_id();
+
         let mut block = self.env.block.clone();
         // We always set the gas price to 0 so we can execute the transaction regardless
         // of network conditions - the actual gas price is kept in `self.block`
@@ -637,12 +640,9 @@ impl<
         tx.set_gas_price(0);
         tx.set_gas_priority_fee(None);
         tx.set_gas_limit(self.gas_limit);
+        tx.set_chain_id(Some(cfg.chain_id));
 
-        EvmEnv {
-            cfg: self.env.cfg.clone(),
-            block,
-            tx,
-        }
+        EvmEnv { cfg, block, tx }
     }
 
     pub fn call_sol_default<C: SolCall>(&self, to: Address, args: &C) -> C::Return
