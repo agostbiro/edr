@@ -930,24 +930,11 @@ impl<
             return;
         }
 
-        let result = outcome.result.result;
-
         call_inspectors_adjust_depth!(
             #[no_ret]
             [&mut self.tracer, &mut self.cheatcodes],
             |inspector| {
-                // TODO this might be wrong
-                // let previous_outcome = outcome.clone();
-                // let new_outcome = inspector.create_end(ecx, call, outcome);
                 inspector.create_end(ecx, call, outcome);
-
-                // If the inspector returns a different status or a revert with
-                // a non-empty message, we assume it wants to
-                // tell us something let different =
-                // outcome.result.result != result     || (outcome.result.result
-                // == InstructionResult::Revert         &&
-                // outcome.output() != previous_outcome.output());
-                // different.then_some(outcome.clone())
             },
             self,
             ecx
