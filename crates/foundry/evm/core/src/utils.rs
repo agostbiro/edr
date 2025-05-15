@@ -2,7 +2,7 @@ use alloy_chains::NamedChain;
 use alloy_consensus::{BlockHeader, Typed2718};
 use alloy_json_abi::{Function, JsonAbi};
 use alloy_network::{AnyTxEnvelope, BlockResponse, Network};
-use alloy_primitives::{PrimitiveSignature, Selector, TxKind, B256};
+use alloy_primitives::{PrimitiveSignature, Selector, TxKind, B256, U256};
 use alloy_rpc_types::{Transaction as RpcTransaction, TransactionRequest};
 pub use revm::state::EvmState as StateChangeset;
 use revm::{
@@ -73,9 +73,11 @@ pub fn apply_chain_and_block_specific_env_changes<N: Network>(
                 if let Some(l1_block_number) = block
                     .other_fields()
                     .and_then(|other| other.get("l1BlockNumber").cloned())
-                    .and_then(|l1_block_number| l1_block_number.as_u64())
+                    .and_then(|l1_block_number| {
+                        serde_json::from_value::<U256>(l1_block_number).ok()
+                    })
                 {
-                    block_env.number = l1_block_number;
+                    block_env.number = l1_block_number.to();
                 }
             }
             _ => {}
