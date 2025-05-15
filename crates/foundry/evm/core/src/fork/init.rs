@@ -81,6 +81,7 @@ where
     // caller is a contract. So we disable the check by default.
     cfg.disable_eip3607 = true;
     cfg.disable_block_gas_limit = disable_block_gas_limit;
+    cfg.disable_nonce_check = true;
 
     let mut block_env_opts = BlockEnvOpts {
         number: block.header().number(),

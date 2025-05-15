@@ -107,12 +107,6 @@ impl<
 
         *env = EvmEnv::from(evm.data.ctx);
 
-        // let Context { block, tx, cfg, .. } = evm.data.ctx;
-        //
-        // *env.block = block;
-        // *env.tx = tx;
-        // *env.cfg = cfg;
-
         Ok(res)
     }
 
