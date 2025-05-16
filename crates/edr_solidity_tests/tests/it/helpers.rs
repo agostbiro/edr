@@ -357,10 +357,7 @@ impl ForgeTestData {
             };
 
             // if it's a test, link it and add to deployable contracts
-            if abi
-                .constructor
-                .as_ref()
-                .map_or(true, |c| c.inputs.is_empty())
+            if abi.constructor.as_ref().is_none_or(|c| c.inputs.is_empty())
                 && abi.functions().any(|func| func.name.is_any_test())
             {
                 let Some(bytecode) = contract

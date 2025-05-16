@@ -594,7 +594,7 @@ impl Cheatcode for expectSafeMemoryCallCall {
             ccx.state,
             min,
             max,
-            (ccx.ecx.journaled_state.depth() as u64 + 1) as u64,
+            ccx.ecx.journaled_state.depth() as u64 + 1,
         )
     }
 }
@@ -769,9 +769,10 @@ pub(crate) fn handle_expect_emit<
     let expected_topic_0 = expected.topics().first();
     let log_topic_0 = log.topics().first();
 
-    if expected_topic_0.zip(log_topic_0).map_or(false, |(a, b)| {
-        a == b && expected.topics().len() == log.topics().len()
-    }) {
+    if expected_topic_0
+        .zip(log_topic_0)
+        .is_some_and(|(a, b)| a == b && expected.topics().len() == log.topics().len())
+    {
         // Match topics
         event_to_fill_or_check.found = log
             .topics()

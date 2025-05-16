@@ -571,7 +571,7 @@ impl<
         };
 
         // Commit changes after transaction
-        (&mut *db).commit(res.state.clone());
+        (*db).commit(res.state.clone());
 
         // Update both states with new DB data after commit.
         if let Err(e) = update_state(&mut context.journaled_state.state, &mut *db, None) {

@@ -979,8 +979,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
                             if reason.is_some() && revert_reason.is_none() {
                                 tracing::warn!(?invariant_contract.invariant_function, "Failed to compute stack trace");
                             } else {
-                                stack_trace =
-                                    stack_trace_result.map(StackTraceResult::from).map(Arc::new);
+                                stack_trace = stack_trace_result.map(Arc::new);
                                 reason = revert_reason;
                             }
                         }
@@ -1324,12 +1323,7 @@ fn try_to_replay_recorded_failures<NestedTraceDecoderT: NestedTraceDecoder<HaltR
                     fail_on_revert: invariant_config.fail_on_revert,
                     show_solidity: invariant_config.show_solidity,
                 })
-                .map_or(None, |result| {
-                    result
-                        .stack_trace_result
-                        .map(StackTraceResult::from)
-                        .map(Arc::new)
-                });
+                .map_or(None, |result| result.stack_trace_result.map(Arc::new));
                 let reason = if replayed_entirely {
                     Some(format!(
                         "{} replay failure",

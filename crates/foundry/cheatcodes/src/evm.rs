@@ -143,8 +143,8 @@ impl Cheatcode for loadAllocsCall {
         };
 
         // Then, load the allocs into the database.
-        let (db, mut context) = split_context(ccx.ecx);
-        db.load_allocs(&allocs, &mut context.journaled_state)
+        let (db, context) = split_context(ccx.ecx);
+        db.load_allocs(&allocs, context.journaled_state)
             .map(|()| Vec::default())
             .map_err(|e| fmt_err!("failed to load allocs: {e}"))
     }
@@ -233,7 +233,7 @@ impl Cheatcode for signP256Call {
         DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
+        _ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { privateKey, digest } = self;
         super::utils::sign_p256(privateKey, digest)
@@ -867,7 +867,7 @@ impl Cheatcode for snapshotCall {
         let Self {} = self;
         let (db, context) = split_context(ccx.ecx);
         Ok(db
-            .snapshot(&context.journaled_state, context.to_owned_env())
+            .snapshot(context.journaled_state, context.to_owned_env())
             .abi_encode())
     }
 }

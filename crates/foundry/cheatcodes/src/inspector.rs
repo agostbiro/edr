@@ -24,12 +24,12 @@ use revm::{
     self,
     bytecode::opcode,
     context::{BlockEnv, CfgEnv, Context as EvmContext, JournalTr},
-    context_interface::{Block, Transaction},
     interpreter::{
-        interpreter_types::{Jumps, LoopControl, MemoryTr},
-        CallInputs, CallOutcome, CallScheme, CreateInputs, CreateOutcome, Gas,
-        Host, InstructionResult, Interpreter, InterpreterAction, InterpreterResult,
-    }, Inspector, Journal,
+        interpreter_types::{Jumps, MemoryTr},
+        CallInputs, CallOutcome, CallScheme, CreateInputs, CreateOutcome, Gas, Host,
+        InstructionResult, Interpreter, InterpreterAction, InterpreterResult,
+    },
+    Inspector, Journal,
 };
 use rustc_hash::FxHashMap;
 use serde_json::Value;
@@ -511,8 +511,7 @@ impl<
                 // load balance of this account
                 let value = ecx
                     .balance(interpreter.input.target_address)
-                    .map(|b| b.data)
-                    .unwrap_or(U256::ZERO);
+                    .map_or(U256::ZERO, |b| b.data);
                 let account = Address::from_word(B256::from(target));
                 // get previous balance and initialized status of the target account
                 let (initialized, old_balance) = ecx
@@ -942,12 +941,11 @@ impl<
                     *calldata == call.input[..calldata.len()] &&
                     // The value matches, if provided
                     expected
-                        .value
-                        .map_or(true, |value| Some(value) == call.transfer_value()) &&
+                        .value.is_none_or(|value| Some(value) == call.transfer_value()) &&
                     // The gas matches, if provided
-                    expected.gas.map_or(true, |gas| gas == call.gas_limit) &&
+                    expected.gas.is_none_or(|gas| gas == call.gas_limit) &&
                     // The minimum gas matches, if provided
-                    expected.min_gas.map_or(true, |min_gas| min_gas <= call.gas_limit)
+                    expected.min_gas.is_none_or(|min_gas| min_gas <= call.gas_limit)
                 {
                     *actual_count += 1;
                 }
@@ -967,7 +965,7 @@ impl<
                         call.input.get(..mock.calldata.len()) == Some(&mock.calldata[..])
                             && mock
                                 .value
-                                .map_or(true, |value| Some(value) == call.transfer_value())
+                                .is_none_or(|value| Some(value) == call.transfer_value())
                     })
                     .map(|(_, v)| v)
             }) {
@@ -1352,7 +1350,6 @@ impl<
                 };
                 outcome.result.result = InstructionResult::Revert;
                 outcome.result.output = Error::encode(msg);
-                return;
             }
         }
     }

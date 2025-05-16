@@ -16,12 +16,8 @@ use crate::{executors::Executor, inspectors::InspectorStackBuilder};
 /// [`InspectorStack`]: super::inspector::InspectorStack
 #[derive(Clone, Debug)]
 #[must_use = "builders do nothing unless you call `build` on them"]
-pub struct ExecutorBuilder<
-    BlockT: BlockEnvTr,
-    TxT: TransactionEnvTr,
-    HardforkT: HardforkTr,
-    ChainContextT: ChainContextTr,
-> where
+pub struct ExecutorBuilder<BlockT, TxT, HardforkT, ChainContextT>
+where
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
     HardforkT: HardforkTr,
@@ -41,12 +37,8 @@ pub struct ExecutorBuilder<
     chain_context: ChainContextT,
 }
 
-impl<
-        BlockT: BlockEnvTr,
-        TxT: TransactionEnvTr,
-        HardforkT: HardforkTr,
-        ChainContextT: ChainContextTr,
-    > Default for ExecutorBuilder<BlockT, TxT, HardforkT, ChainContextT>
+impl<BlockT, TxT, HardforkT, ChainContextT> Default
+    for ExecutorBuilder<BlockT, TxT, HardforkT, ChainContextT>
 where
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
@@ -66,12 +58,7 @@ where
     }
 }
 
-impl<
-        BlockT: BlockEnvTr,
-        TxT: TransactionEnvTr,
-        HardforkT: HardforkTr,
-        ChainContextT: ChainContextTr,
-    > ExecutorBuilder<BlockT, TxT, HardforkT, ChainContextT>
+impl<BlockT, TxT, HardforkT, ChainContextT> ExecutorBuilder<BlockT, TxT, HardforkT, ChainContextT>
 where
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,

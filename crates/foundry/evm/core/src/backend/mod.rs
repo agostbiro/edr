@@ -16,9 +16,8 @@ pub use foundry_fork_db::{cache::BlockchainDbMeta, BlockchainDb, SharedBackend};
 use revm::{
     bytecode::Bytecode,
     context::{Cfg, CfgEnv, JournalInner},
-    context_interface::{result::ResultAndState, Block, JournalTr, Transaction},
+    context_interface::{result::ResultAndState, Transaction},
     database::{CacheDB, DatabaseRef},
-    handler::PrecompileProvider,
     inspector::NoOpInspector,
     precompile::{PrecompileSpecId, Precompiles},
     primitives::{HashMap as Map, Log, KECCAK_EMPTY},
@@ -563,7 +562,7 @@ impl<
             fork_init_journaled_state: inner.new_journaled_state(),
             active_fork_ids: None,
             inner,
-            _phantom: PhantomData::default(),
+            _phantom: PhantomData,
         };
 
         if let Some(fork) = fork {
@@ -625,7 +624,7 @@ impl<
             fork_init_journaled_state: self.inner.new_journaled_state(),
             active_fork_ids: None,
             inner: BackendInner::default(),
-            _phantom: PhantomData::default(),
+            _phantom: PhantomData,
         }
     }
 
@@ -827,7 +826,7 @@ impl<
         self.inner
             .launched_with_fork
             .as_ref()
-            .map_or(false, |lf| lf.fork_block_number.is_none())
+            .is_some_and(|lf| lf.fork_block_number.is_none())
     }
 
     /// Whether when re-executing the calls the same results are guaranteed.
@@ -1144,7 +1143,7 @@ impl<
                 fork,
                 &fork_id,
                 &persistent_accounts,
-                &mut NoOpInspector,
+                NoOpInspector,
             )?;
         }
 
@@ -1299,7 +1298,7 @@ impl<
     fn select_fork(
         &mut self,
         id: LocalForkId,
-        context: &mut EvmContext<BlockT, TxT, HardforkT, ChainContextT>,
+        context: &mut EvmContext<'_, BlockT, TxT, HardforkT, ChainContextT>,
     ) -> eyre::Result<()> {
         trace!(?id, "select fork");
         if self.is_active_fork(id) {
@@ -1434,7 +1433,7 @@ impl<
                 for addr in persistent_addrs {
                     merge_journaled_state_data(
                         addr,
-                        &context.journaled_state,
+                        context.journaled_state,
                         &mut active.journaled_state,
                     );
                 }
@@ -1453,7 +1452,7 @@ impl<
                         if acc.is_touched() {
                             merge_journaled_state_data(
                                 *addr,
-                                &context.journaled_state,
+                                context.journaled_state,
                                 &mut active.journaled_state,
                             );
                         }
@@ -1499,7 +1498,7 @@ impl<
         maybe_id: Option<LocalForkId>,
         transaction: B256,
         inspector: &mut InspectorT,
-        context: &mut EvmContext<BlockT, TxT, HardforkT, ChainContextT>,
+        context: &mut EvmContext<'_, BlockT, TxT, HardforkT, ChainContextT>,
     ) -> eyre::Result<()>
     where
         InspectorT: CheatcodeInspectorTr<
@@ -2137,7 +2136,7 @@ pub struct LaunchedWithFork {
 
 /// This updates the currently used env with the fork's environment
 pub(crate) fn update_current_env_with_fork_env<BlockT, TxT, HardforkT, ChainContextT>(
-    current: &mut EvmContext<BlockT, TxT, HardforkT, ChainContextT>,
+    current: &mut EvmContext<'_, BlockT, TxT, HardforkT, ChainContextT>,
     fork: EvmEnv<BlockT, TxT, HardforkT>,
 ) where
     TxT: Transaction + TransactionEnvMut,
@@ -2321,7 +2320,7 @@ pub fn update_state<DB: Database>(
     persistent_accounts: Option<&HashSet<Address>>,
 ) -> Result<(), DB::Error> {
     for (addr, acc) in state.iter_mut() {
-        if !persistent_accounts.map_or(false, |accounts| accounts.contains(addr)) {
+        if !persistent_accounts.is_some_and(|accounts| accounts.contains(addr)) {
             acc.info = db.basic(*addr)?.unwrap_or_default();
             for (key, val) in acc.storage.iter_mut() {
                 val.present_value = db.storage(*addr, *key)?;

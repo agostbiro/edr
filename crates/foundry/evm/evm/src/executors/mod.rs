@@ -12,6 +12,13 @@ use std::{
     time::{Duration, Instant},
 };
 
+// Type aliases to simplify complex types
+type CallResultType<BlockT, TxT, HardforkT, R> = CallResult<BlockT, TxT, HardforkT, R>;
+type EvmErrorType<BlockT, TxT, HardforkT> = EvmError<BlockT, TxT, HardforkT>;
+type RawCallResultType<BlockT, TxT, HardforkT> = RawCallResult<BlockT, TxT, HardforkT>;
+type CowBackendType<'a, BlockT, TxT, HardforkT, ChainContextT> =
+    CowBackend<'a, BlockT, TxT, HardforkT, ChainContextT>;
+
 use alloy_dyn_abi::{DynSolValue, FunctionExt, JsonAbiExt};
 use alloy_json_abi::Function;
 use alloy_primitives::{
@@ -125,8 +132,8 @@ impl<
         Executor {
             backend,
             env,
-            chain_context,
             inspector,
+            chain_context,
             gas_limit,
         }
     }
@@ -148,7 +155,8 @@ impl<
         // if the deployer is not currently deployed, deploy the default one
         if create2_deployer_account
             .code
-            .map_or(true, |code| code.is_empty())
+            .as_ref()
+            .is_none_or(revm::bytecode::Bytecode::is_empty)
         {
             let creator = "0x3fAB184622Dc19b6109349B94811493BF2a45362"
                 .parse()
@@ -212,7 +220,8 @@ impl<
         Ok(self
             .backend
             .basic_ref(address)?
-            .map_or(true, |acc| acc.is_empty_code_hash()))
+            .as_ref()
+            .is_none_or(revm::state::AccountInfo::is_empty_code_hash))
     }
 
     #[inline]
@@ -342,8 +351,10 @@ impl<
         args: &C,
         value: U256,
         rd: Option<&RevertDecoder>,
-    ) -> Result<CallResult<BlockT, TxT, HardforkT, C::Return>, EvmError<BlockT, TxT, HardforkT>>
-    {
+    ) -> Result<
+        CallResultType<BlockT, TxT, HardforkT, C::Return>,
+        EvmErrorType<BlockT, TxT, HardforkT>,
+    > {
         let calldata = Bytes::from(args.abi_encode());
         let (mut raw, _cow_backend) = self.call_raw(from, to, calldata, value)?;
         raw = raw.into_result(rd)?;
@@ -369,8 +380,8 @@ impl<
         calldata: Bytes,
         value: U256,
     ) -> eyre::Result<(
-        RawCallResult<BlockT, TxT, HardforkT>,
-        CowBackend<'_, BlockT, TxT, HardforkT, ChainContextT>,
+        RawCallResultType<BlockT, TxT, HardforkT>,
+        CowBackendType<'_, BlockT, TxT, HardforkT, ChainContextT>,
     )> {
         let mut inspector = self.inspector.clone();
         // Build VM
@@ -640,11 +651,7 @@ impl<
         tx.set_gas_priority_fee(None);
         tx.set_gas_limit(self.gas_limit);
 
-        EvmEnv {
-            cfg,
-            block,
-            tx,
-        }
+        EvmEnv { cfg, block, tx }
     }
 
     pub fn call_sol_default<C: SolCall>(&self, to: Address, args: &C) -> C::Return
@@ -976,11 +983,7 @@ fn convert_executed_result<
         env.cfg.spec.into(),
         env.tx.input(),
         env.tx.kind().is_create(),
-        env.tx
-            .access_list()
-            .map(Iterator::count)
-            .unwrap_or(0)
-            .try_into()?,
+        env.tx.access_list().map_or(0, Iterator::count).try_into()?,
         0,
         0,
     );

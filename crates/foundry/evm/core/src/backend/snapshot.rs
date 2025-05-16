@@ -2,9 +2,7 @@ use alloy_primitives::{
     map::{AddressHashMap, HashMap},
     B256, U256,
 };
-use revm::{
-    context::JournalInner, context_interface::JournalTr, state::AccountInfo, Database, JournalEntry,
-};
+use revm::{context::JournalInner, state::AccountInfo, JournalEntry};
 use serde::{Deserialize, Serialize};
 
 use crate::evm_context::EvmEnv;

@@ -8,7 +8,6 @@ use foundry_fork_db::{BlockchainDb, DatabaseError, SharedBackend};
 use parking_lot::Mutex;
 use revm::{
     bytecode::Bytecode,
-    context_interface::JournalTr,
     database::{CacheDB, DatabaseRef},
     primitives::HashMap as Map,
     state::{Account, AccountInfo},

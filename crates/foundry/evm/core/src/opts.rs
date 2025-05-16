@@ -149,7 +149,7 @@ where
 
         let tx_env_opts = TxEnvOpts {
             gas_price: self.env.gas_price.unwrap_or_default().into(),
-            gas_limit: self.gas_limit().into(),
+            gas_limit: self.gas_limit(),
             chain_id: None,
             caller: self.sender,
         };

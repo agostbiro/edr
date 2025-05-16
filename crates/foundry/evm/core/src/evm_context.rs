@@ -204,8 +204,8 @@ impl BlockEnvMut for BlockEnv {
 
 /// Split the database from EVM execution context so that a mutable method can
 /// be called on the database with arguments from the execution context.
-pub fn split_context<'a, BlockT, TxT, HardforkT, DatabaseT, ChainContextT>(
-    context: &'a mut revm::context::Context<
+pub fn split_context<BlockT, TxT, HardforkT, DatabaseT, ChainContextT>(
+    context: &mut revm::context::Context<
         BlockT,
         TxT,
         CfgEnv<HardforkT>,
@@ -214,8 +214,8 @@ pub fn split_context<'a, BlockT, TxT, HardforkT, DatabaseT, ChainContextT>(
         ChainContextT,
     >,
 ) -> (
-    &'a mut DatabaseT,
-    EvmContext<'a, BlockT, TxT, HardforkT, ChainContextT>,
+    &mut DatabaseT,
+    EvmContext<'_, BlockT, TxT, HardforkT, ChainContextT>,
 )
 where
     BlockT: BlockEnvTr,
@@ -281,8 +281,7 @@ where
     }
 }
 
-impl<'a, BlockT, TxT, HardforkT, ChainContextT>
-    EvmContext<'a, BlockT, TxT, HardforkT, ChainContextT>
+impl<BlockT, TxT, HardforkT, ChainContextT> EvmContext<'_, BlockT, TxT, HardforkT, ChainContextT>
 where
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
@@ -343,7 +342,7 @@ impl EvmEnv<BlockEnv, TxEnv, SpecId> {
     }
 
     pub fn from_mainnet(cfg: CfgEnv<SpecId>, block: BlockEnv, tx: TxEnv) -> Self {
-        Self { cfg, block, tx }
+        Self { block, tx, cfg }
     }
 
     pub fn from_mainnet_with_spec_id(

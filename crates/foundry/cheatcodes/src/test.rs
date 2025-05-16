@@ -19,7 +19,10 @@ use crate::impl_is_pure_true;
 
 impl_is_pure_true!(assumeCall);
 impl Cheatcode for assumeCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, _state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { condition } = self;
         if *condition {
             Ok(Vec::default())
@@ -31,7 +34,10 @@ impl Cheatcode for assumeCall {
 
 impl_is_pure_true!(rpcUrlCall);
 impl Cheatcode for rpcUrlCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { rpcAlias } = self;
         state.config.rpc_url(rpcAlias).map(|url| url.abi_encode())
     }
@@ -39,7 +45,10 @@ impl Cheatcode for rpcUrlCall {
 
 impl_is_pure_true!(rpcUrlsCall);
 impl Cheatcode for rpcUrlsCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {} = self;
         state.config.rpc_urls().map(|urls| urls.abi_encode())
     }
@@ -47,7 +56,10 @@ impl Cheatcode for rpcUrlsCall {
 
 impl_is_pure_true!(rpcUrlStructsCall);
 impl Cheatcode for rpcUrlStructsCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {} = self;
         state.config.rpc_urls().map(|urls| urls.abi_encode())
     }
@@ -55,7 +67,10 @@ impl Cheatcode for rpcUrlStructsCall {
 
 impl_is_pure_true!(sleepCall);
 impl Cheatcode for sleepCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(&self, _state: &mut Cheatcodes<BlockT, TxT, HardforkT>) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { duration } = self;
         let sleep_duration = std::time::Duration::from_millis(duration.saturating_to());
         std::thread::sleep(sleep_duration);
@@ -65,7 +80,16 @@ impl Cheatcode for sleepCall {
 
 impl_is_pure_true!(skipCall);
 impl Cheatcode for skipCall {
-    fn apply_full<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr, ChainContextT: ChainContextTr, DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>>(&self, ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
+    ) -> Result {
         let Self { skipTest } = *self;
         if skipTest {
             // Skip should not work if called deeper than at test level.

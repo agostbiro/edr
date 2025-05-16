@@ -154,7 +154,6 @@ mod tests {
     use std::{path::PathBuf, sync::Arc};
 
     use alloy_primitives::FixedBytes;
-    
     use hex::FromHex;
     use p256::ecdsa::signature::hazmat::PrehashVerifier;
     use revm::{
@@ -164,18 +163,6 @@ mod tests {
 
     use super::*;
     use crate::CheatsConfig;
-
-    fn cheats() -> Cheatcodes<BlockEnv, TxEnv, SpecId> {
-        let config = CheatsConfig::<BlockEnv, TxEnv, SpecId> {
-            ffi: true,
-            project_root: PathBuf::from(&env!("CARGO_MANIFEST_DIR")),
-            ..Default::default()
-        };
-        Cheatcodes {
-            config: Arc::new(config),
-            ..Default::default()
-        }
-    }
 
     #[test]
     fn test_sign_p256() {

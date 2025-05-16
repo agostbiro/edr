@@ -7,7 +7,7 @@ use alloy_rpc_types::{Transaction as RpcTransaction, TransactionRequest};
 pub use revm::state::EvmState as StateChangeset;
 use revm::{
     context::{CfgEnv, Evm},
-    context_interface::{Block, JournalTr},
+    context_interface::JournalTr,
     handler::{instructions::EthInstructions, EthPrecompiles},
     interpreter::interpreter::EthInterpreter,
     primitives::hardfork::SpecId,
@@ -192,6 +192,10 @@ pub fn gas_used(spec: SpecId, spent: u64, refunded: u64) -> u64 {
     spent - (refunded).min(spent / refund_quotient)
 }
 
+// Type alias to simplify the return type of new_evm_with_inspector
+type EthInstructionsContext<BlockT, TxT, HardforkT, DatabaseT, ChainContextT> =
+    Context<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>;
+
 /// Creates a new EVM with the given inspector.
 pub fn new_evm_with_inspector<BlockT, TxT, HardforkT, DatabaseT, ChainContextT, InspectorT>(
     db: DatabaseT,
@@ -199,17 +203,17 @@ pub fn new_evm_with_inspector<BlockT, TxT, HardforkT, DatabaseT, ChainContextT, 
     inspector: InspectorT,
     chain: ChainContextT,
 ) -> Evm<
-    Context<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+    EthInstructionsContext<BlockT, TxT, HardforkT, DatabaseT, ChainContextT>,
     InspectorT,
     EthInstructions<
         EthInterpreter,
-        Context<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+        EthInstructionsContext<BlockT, TxT, HardforkT, DatabaseT, ChainContextT>,
     >,
     EthPrecompiles,
 >
 where
     InspectorT: Inspector<
-        Context<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+        EthInstructionsContext<BlockT, TxT, HardforkT, DatabaseT, ChainContextT>,
         EthInterpreter,
     >,
     BlockT: BlockEnvTr,
@@ -251,7 +255,7 @@ mod tests {
         let mut inspector = NoOpInspector;
 
         let mut evm = new_evm_with_inspector(&mut db, env, &mut inspector, ());
-        let result = evm.transact(Default::default()).unwrap();
+        let result = evm.transact(revm::context::TxEnv::default()).unwrap();
         assert!(result.result.is_success());
     }
 }

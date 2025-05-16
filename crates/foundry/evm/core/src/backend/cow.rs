@@ -11,7 +11,6 @@ use revm::{
     context::{Cfg, JournalInner},
     context_interface::result::ResultAndState,
     database::DatabaseRef,
-    handler::PrecompileProvider,
     primitives::HashMap as Map,
     state::{Account, AccountInfo},
     Database, DatabaseCommit, InspectEvm, JournalEntry,
@@ -211,7 +210,7 @@ impl<
     fn select_fork(
         &mut self,
         id: LocalForkId,
-        context: &mut EvmContext<BlockT, TxT, HardforkT, ChainContextT>,
+        context: &mut EvmContext<'_, BlockT, TxT, HardforkT, ChainContextT>,
     ) -> eyre::Result<()> {
         self.backend_mut(context.to_owned_env())
             .select_fork(id, context)
@@ -221,7 +220,7 @@ impl<
         &mut self,
         id: Option<LocalForkId>,
         block_number: u64,
-        context: &mut EvmContext<BlockT, TxT, HardforkT, ChainContextT>,
+        context: &mut EvmContext<'_, BlockT, TxT, HardforkT, ChainContextT>,
     ) -> eyre::Result<()> {
         self.backend_mut(context.to_owned_env())
             .roll_fork(id, block_number, context)
