@@ -97,7 +97,7 @@ impl Provider {
     /// `eth_estimateGas`, `eth_sendRawTransaction`, `eth_sendTransaction`,
     /// `evm_mine`, `hardhat_mine` include the full stack and memory. Set to
     /// `false` to disable this.
-    #[napi(ts_return_type = "void")]
+    #[napi]
     pub async fn set_verbose_tracing(&self, verbose_tracing: bool) -> napi::Result<()> {
         let provider = self.provider.clone();
 

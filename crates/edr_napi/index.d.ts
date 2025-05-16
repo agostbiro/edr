@@ -1150,7 +1150,7 @@ export declare class Provider {
    * `evm_mine`, `hardhat_mine` include the full stack and memory. Set to
    * `false` to disable this.
    */
-  setVerboseTracing(verboseTracing: boolean): void
+  setVerboseTracing(verboseTracing: boolean): Promise<void>
 }
 /** See [edr_solidity_tests::result::SuiteResult] */
 export declare class SuiteResult {
