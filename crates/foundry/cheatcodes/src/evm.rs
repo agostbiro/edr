@@ -518,7 +518,7 @@ impl Cheatcode for getBlobhashesCall {
             "`blobhash` is not supported before the Cancun hard fork; \
              see EIP-4844: https://eips.ethereum.org/EIPS/eip-4844"
         );
-        Ok(ccx.ecx.tx.blob_versioned_hashes().clone().abi_encode())
+        Ok(ccx.ecx.tx.blob_versioned_hashes().abi_encode())
     }
 }
 

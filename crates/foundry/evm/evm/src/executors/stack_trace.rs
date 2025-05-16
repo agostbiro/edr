@@ -16,10 +16,7 @@ use foundry_evm_core::{
     evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr},
 };
 use foundry_evm_traces::{SparsedTraceArena, TraceKind};
-use revm::{
-    context::result::HaltReason,
-    interpreter::{InternalResult, SuccessOrHalt},
-};
+use revm::interpreter::{InternalResult, SuccessOrHalt};
 use revm_inspectors::tracing::{types::CallTraceStep, CallTraceArena};
 
 use crate::executors::EvmError;

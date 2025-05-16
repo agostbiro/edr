@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display};
 use alloy_primitives::{I256, U256};
 use foundry_evm_core::{
     abi::{format_units_int, format_units_uint},
-    evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr},
+    evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr},
 };
 use itertools::Itertools;
 

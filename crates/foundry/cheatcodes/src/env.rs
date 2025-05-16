@@ -4,7 +4,7 @@ use std::env;
 
 use alloy_dyn_abi::DynSolType;
 use alloy_sol_types::SolValue;
-use foundry_evm_core::evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr};
+use foundry_evm_core::evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr};
 
 use crate::{
     config::ExecutionContextConfig,

@@ -13,8 +13,7 @@ use revm::{
     context::{CfgEnv, Context as EvmContext},
     interpreter::{
         CallInputs, CallOutcome, Gas, InstructionResult, Interpreter, InterpreterResult,
-    },
-    Database, Inspector, Journal,
+    }, Inspector, Journal,
 };
 
 use crate::inspectors::error_ext::ErrorExt;

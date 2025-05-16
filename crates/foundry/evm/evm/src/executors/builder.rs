@@ -1,4 +1,3 @@
-use alloy_primitives::U256;
 use foundry_evm_core::{
     backend::Backend,
     evm_context::{BlockEnvTr, ChainContextTr, EvmEnv, HardforkTr, TransactionEnvTr},

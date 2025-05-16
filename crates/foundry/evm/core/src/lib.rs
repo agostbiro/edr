@@ -4,15 +4,6 @@
 
 #![warn(unused_crate_dependencies)]
 
-use auto_impl::auto_impl;
-use revm::{
-    context::{Block, CfgEnv},
-    context_interface::Transaction,
-    inspector::NoOpInspector,
-    primitives::hardfork::SpecId,
-    Context, Database, Inspector, Journal,
-};
-use revm_inspectors::access_list::AccessListInspector;
 
 #[macro_use]
 extern crate tracing;

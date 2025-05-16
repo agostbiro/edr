@@ -5,7 +5,7 @@ mod response;
 use std::{fmt::Formatter, sync::Arc};
 
 use edr_napi_core::provider::SyncProvider;
-use edr_solidity::contract_decoder::{ContractDecoder, NestedTraceDecoder};
+use edr_solidity::contract_decoder::ContractDecoder;
 use napi::{
     bindgen_prelude::Uint8Array, tokio::runtime, Either, Env, JsFunction, JsObject, Status,
 };

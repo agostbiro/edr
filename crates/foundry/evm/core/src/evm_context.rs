@@ -1,13 +1,10 @@
 use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
 use revm::{
-    context::{transaction::SignedAuthorization, BlockEnv, CfgEnv, Evm, JournalInner, TxEnv},
+    context::{transaction::SignedAuthorization, BlockEnv, CfgEnv, JournalInner, TxEnv},
     context_interface::{transaction::AccessList, Block, JournalTr, Transaction},
-    handler::{instructions::EthInstructions, EthPrecompiles},
-    interpreter::interpreter::EthInterpreter,
     primitives::hardfork::SpecId,
-    Database, Inspector, Journal, JournalEntry,
+    Database, Journal, JournalEntry,
 };
-use yansi::Paint;
 
 use crate::{
     backend::CheatcodeBackend,

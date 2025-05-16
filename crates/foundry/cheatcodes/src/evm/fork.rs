@@ -4,7 +4,7 @@ use alloy_rpc_types::Filter;
 use alloy_sol_types::SolValue;
 use foundry_evm_core::{
     evm_context::{
-        split_context, BlockEnvTr, ChainContextTr, EvmContext, EvmEnv, HardforkTr, TransactionEnvTr,
+        split_context, BlockEnvTr, ChainContextTr, EvmContext, HardforkTr, TransactionEnvTr,
     },
     fork::{provider::ProviderBuilder, CreateFork},
 };
@@ -634,7 +634,7 @@ fn create_fork_at_transaction<
     transaction: &B256,
 ) -> Result {
     let fork = create_fork_request(ccx, url_or_alias, None)?;
-    let (db, mut context) = split_context(ccx.ecx);
+    let (db, context) = split_context(ccx.ecx);
     let id = db.create_fork_at_transaction(fork, *transaction, context.chain_context)?;
     Ok(id.abi_encode())
 }

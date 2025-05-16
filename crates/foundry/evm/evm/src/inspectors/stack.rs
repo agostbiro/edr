@@ -497,7 +497,7 @@ impl<
             .info
             .nonce;
 
-        let (mut db, mut context) = split_context(ecx);
+        let (db, context) = split_context(ecx);
 
         let cached_env = context.to_owned_env();
 

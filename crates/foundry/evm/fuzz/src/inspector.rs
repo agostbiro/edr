@@ -1,7 +1,6 @@
 use revm::{
     context_interface::{ContextTr, Transaction},
-    interpreter::{CallInputs, CallOutcome, CallScheme, Interpreter},
-    Database, Inspector,
+    interpreter::{CallInputs, CallOutcome, CallScheme, Interpreter}, Inspector,
 };
 
 use crate::{invariant::RandomCallGenerator, strategies::EvmFuzzState};

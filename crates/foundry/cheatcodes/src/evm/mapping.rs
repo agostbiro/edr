@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use alloy_primitives::{keccak256, Address, B256, U256};
 use alloy_sol_types::SolValue;
-use foundry_evm_core::evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr};
+use foundry_evm_core::evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr};
 use revm::{
     bytecode::opcode,
     interpreter::{

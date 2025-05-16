@@ -335,7 +335,7 @@ revm-interpreter = { git = "https://github.com/bluealloy/revm.git", rev = "2401c
 revm-precompile = { git = "https://github.com/bluealloy/revm.git", rev = "2401c2c3" }
 revm-primitives = { git = "https://github.com/bluealloy/revm.git", rev = "2401c2c3" }
 revm-state = { git = "https://github.com/bluealloy/revm.git", rev = "2401c2c3" }
-#op-revm = { git = "https://github.com/bluealloy/revm.git", rev = "2401c2c3" }
+op-revm = { git = "https://github.com/bluealloy/revm.git", rev = "2401c2c3" }
 # revm-inspectors = { git = "https://github.com/paradigmxyz/revm-inspectors.git", rev = "a625c04" }
 
 ## foundry

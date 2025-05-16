@@ -2,7 +2,7 @@
 
 use alloy_dyn_abi::DynSolType;
 use edr_common::fs;
-use foundry_evm_core::evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr};
+use foundry_evm_core::evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr};
 use serde_json::Value as JsonValue;
 use toml::Value as TomlValue;
 

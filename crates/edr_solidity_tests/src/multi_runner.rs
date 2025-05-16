@@ -14,7 +14,6 @@ use foundry_evm::{
     fork::CreateFork,
     inspectors::{cheatcodes::CheatsConfigOptions, CheatsConfig},
     opts::EvmOpts,
-    revm,
 };
 use futures::StreamExt;
 

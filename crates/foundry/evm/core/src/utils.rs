@@ -16,7 +16,7 @@ use revm::{
 
 pub use crate::ic::*;
 use crate::{
-    evm_context::{BlockEnvTr, EvmContext, EvmEnv, HardforkTr, TransactionEnvTr},
+    evm_context::{BlockEnvTr, EvmEnv, HardforkTr, TransactionEnvTr},
     opts::BlockEnvOpts,
 };
 
