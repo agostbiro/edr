@@ -151,18 +151,12 @@ pub(super) fn parse_wallet(private_key: &U256) -> Result<PrivateKeySigner> {
 
 #[cfg(test)]
 mod tests {
-    use std::{path::PathBuf, sync::Arc};
 
     use alloy_primitives::FixedBytes;
     use hex::FromHex;
     use p256::ecdsa::signature::hazmat::PrehashVerifier;
-    use revm::{
-        context::{BlockEnv, TxEnv},
-        primitives::hardfork::SpecId,
-    };
 
     use super::*;
-    use crate::CheatsConfig;
 
     #[test]
     fn test_sign_p256() {
