@@ -344,6 +344,7 @@ impl<
     /// Performs a call to an account on the current state of the VM.
     ///
     /// The state after the call is not persisted.
+    #[allow(clippy::type_complexity)]
     pub fn call_sol<C: SolCall>(
         &self,
         from: Address,
@@ -373,6 +374,7 @@ impl<
     /// cheatcodes that require mutable access are used. The method returns the
     /// `CowBackend`, as changes to `CowBackend` are not persisted in the
     /// executor's backend.
+    #[allow(clippy::type_complexity)]
     pub fn call_raw(
         &self,
         from: Address,

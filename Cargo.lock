@@ -3186,7 +3186,6 @@ dependencies = [
  "parking_lot 0.12.3",
  "reqwest 0.12.15",
  "revm",
- "revm-inspectors",
  "rustc-hash 1.1.0",
  "serde",
  "serde_json",

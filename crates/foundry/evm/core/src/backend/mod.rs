@@ -246,6 +246,7 @@ pub trait CheatcodeBackend<
     /// # Errors
     ///
     /// Returns an error if not matching fork was found.
+    #[allow(clippy::needless_lifetimes)]
     fn roll_fork<'a, 'b, 'c>(
         &'a mut self,
         id: Option<LocalForkId>,
@@ -1106,6 +1107,7 @@ impl<
     ///
     /// Returns the _unmined_ transaction that corresponds to the given
     /// `tx_hash`
+    #[allow(clippy::needless_lifetimes)]
     pub fn replay_until<'a, 'b>(
         &'a mut self,
         id: LocalForkId,
@@ -1397,6 +1399,7 @@ impl<
 
     /// This is effectively the same as [`Self::create_select_fork()`] but
     /// updating an existing [`ForkId`] that is mapped to the [`LocalForkId`]
+    #[allow(clippy::needless_lifetimes)]
     fn roll_fork<'a, 'b, 'c>(
         &'a mut self,
         id: Option<LocalForkId>,
@@ -2259,6 +2262,7 @@ fn update_env_block<BlockT: BlockEnvTr>(block_env: &mut BlockT, block: &AnyRpcBl
 
 /// Executes the given transaction and commits state changes to the database
 /// _and_ the journaled state, with an optional inspector
+#[allow(clippy::needless_lifetimes)]
 fn commit_transaction<
     'a,
     'b,

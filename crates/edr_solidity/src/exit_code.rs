@@ -11,13 +11,15 @@ pub enum ExitCode<HaltReasonT: HaltReasonTrait> {
     Revert,
     /// Indicates that the EVM has experienced an exceptional halt.
     Halt(HaltReasonT),
+    /// A fatal external error that cannot be recovered from.
     FatalExternalError,
+    /// An internal signal to continue execution.
     InternalContinue,
     /// Internal instruction that signals call or create.
     InternalCallOrCreate,
     /// Internal CREATE/CREATE starts with 0xEF00
     CreateInitCodeStartingEF00,
-    /// Internal to ExtDelegateCall
+    /// Internal to `ExtDelegateCall`
     InvalidExtDelegateCallTarget,
 }
 

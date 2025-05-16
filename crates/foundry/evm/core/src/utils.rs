@@ -197,6 +197,7 @@ type EthInstructionsContext<BlockT, TxT, HardforkT, DatabaseT, ChainContextT> =
     Context<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>;
 
 /// Creates a new EVM with the given inspector.
+#[allow(clippy::type_complexity)]
 pub fn new_evm_with_inspector<BlockT, TxT, HardforkT, DatabaseT, ChainContextT, InspectorT>(
     db: DatabaseT,
     env: EvmEnv<BlockT, TxT, HardforkT>,

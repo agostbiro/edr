@@ -997,6 +997,7 @@ fn collect_data<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr
 /// Calls the `afterInvariant()` function on a contract.
 /// Returns call result and if call succeeded.
 /// The state after the call is not persisted.
+#[allow(clippy::type_complexity)]
 pub(crate) fn call_after_invariant_function<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
@@ -1016,6 +1017,7 @@ pub(crate) fn call_after_invariant_function<
 }
 
 /// Calls the invariant function and returns call result and if succeeded.
+#[allow(clippy::type_complexity)]
 pub(crate) fn call_invariant_function<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,

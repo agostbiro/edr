@@ -148,6 +148,7 @@ impl<
     }
 }
 
+#[allow(clippy::needless_lifetimes)]
 impl<
         'cow,
         BlockT: BlockEnvTr,
@@ -334,6 +335,7 @@ impl<
     }
 }
 
+#[allow(clippy::needless_lifetimes)]
 impl<
         'a,
         BlockT: BlockEnvTr,
@@ -361,6 +363,7 @@ impl<
     }
 }
 
+#[allow(clippy::needless_lifetimes)]
 impl<
         'a,
         BlockT: BlockEnvTr,
@@ -388,6 +391,7 @@ impl<
     }
 }
 
+#[allow(clippy::needless_lifetimes)]
 impl<
         'a,
         BlockT: BlockEnvTr,
