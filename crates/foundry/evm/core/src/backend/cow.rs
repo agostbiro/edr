@@ -148,15 +148,13 @@ impl<
     }
 }
 
-#[allow(clippy::needless_lifetimes)]
 impl<
-        'cow,
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
     > CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
-    for CowBackend<'cow, BlockT, TxT, HardforkT, ChainContextT>
+    for CowBackend<'_, BlockT, TxT, HardforkT, ChainContextT>
 {
     fn snapshot(
         &mut self,
@@ -335,14 +333,12 @@ impl<
     }
 }
 
-#[allow(clippy::needless_lifetimes)]
 impl<
-        'a,
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-    > DatabaseRef for CowBackend<'a, BlockT, TxT, HardforkT, ChainContextT>
+    > DatabaseRef for CowBackend<'_, BlockT, TxT, HardforkT, ChainContextT>
 {
     type Error = DatabaseError;
 
@@ -363,14 +359,12 @@ impl<
     }
 }
 
-#[allow(clippy::needless_lifetimes)]
 impl<
-        'a,
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-    > Database for CowBackend<'a, BlockT, TxT, HardforkT, ChainContextT>
+    > Database for CowBackend<'_, BlockT, TxT, HardforkT, ChainContextT>
 {
     type Error = DatabaseError;
 
@@ -391,14 +385,12 @@ impl<
     }
 }
 
-#[allow(clippy::needless_lifetimes)]
 impl<
-        'a,
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-    > DatabaseCommit for CowBackend<'a, BlockT, TxT, HardforkT, ChainContextT>
+    > DatabaseCommit for CowBackend<'_, BlockT, TxT, HardforkT, ChainContextT>
 {
     fn commit(&mut self, changes: Map<Address, Account>) {
         self.backend.to_mut().commit(changes);

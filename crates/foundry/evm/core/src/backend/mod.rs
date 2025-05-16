@@ -246,12 +246,11 @@ pub trait CheatcodeBackend<
     /// # Errors
     ///
     /// Returns an error if not matching fork was found.
-    #[allow(clippy::needless_lifetimes)]
-    fn roll_fork<'a, 'b, 'c>(
-        &'a mut self,
+    fn roll_fork(
+        &mut self,
         id: Option<LocalForkId>,
         block_number: u64,
-        context: &'b mut EvmContext<'c, BlockT, TxT, HardforkT, ChainContextT>,
+        context: &mut EvmContext<'_, BlockT, TxT, HardforkT, ChainContextT>,
     ) -> eyre::Result<()>;
 
     /// Updates the fork to given transaction hash
@@ -1107,12 +1106,11 @@ impl<
     ///
     /// Returns the _unmined_ transaction that corresponds to the given
     /// `tx_hash`
-    #[allow(clippy::needless_lifetimes)]
-    pub fn replay_until<'a, 'b>(
-        &'a mut self,
+    pub fn replay_until(
+        &mut self,
         id: LocalForkId,
         tx_hash: B256,
-        context: &'b mut EvmContext<'a, BlockT, TxT, HardforkT, ChainContextT>,
+        context: &mut EvmContext<'_, BlockT, TxT, HardforkT, ChainContextT>,
     ) -> eyre::Result<Option<RpcTransaction<AnyTxEnvelope>>> {
         trace!(?id, ?tx_hash, "replay until transaction");
 
@@ -1399,12 +1397,11 @@ impl<
 
     /// This is effectively the same as [`Self::create_select_fork()`] but
     /// updating an existing [`ForkId`] that is mapped to the [`LocalForkId`]
-    #[allow(clippy::needless_lifetimes)]
-    fn roll_fork<'a, 'b, 'c>(
-        &'a mut self,
+    fn roll_fork(
+        &mut self,
         id: Option<LocalForkId>,
         block_number: u64,
-        context: &'b mut EvmContext<'c, BlockT, TxT, HardforkT, ChainContextT>,
+        context: &mut EvmContext<'_, BlockT, TxT, HardforkT, ChainContextT>,
     ) -> eyre::Result<()> {
         trace!(?id, ?block_number, "roll fork");
         let id = self.ensure_fork(id)?;
@@ -2262,17 +2259,14 @@ fn update_env_block<BlockT: BlockEnvTr>(block_env: &mut BlockT, block: &AnyRpcBl
 
 /// Executes the given transaction and commits state changes to the database
 /// _and_ the journaled state, with an optional inspector
-#[allow(clippy::needless_lifetimes)]
 fn commit_transaction<
-    'a,
-    'b,
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
     HardforkT: HardforkTr,
     ChainContextT: ChainContextTr,
     InspectorT,
 >(
-    context: &'b mut EvmContext<'a, BlockT, TxT, HardforkT, ChainContextT>,
+    context: &mut EvmContext<'_, BlockT, TxT, HardforkT, ChainContextT>,
     tx: &RpcTransaction<AnyTxEnvelope>,
     fork: &mut Fork,
     fork_id: &ForkId,
