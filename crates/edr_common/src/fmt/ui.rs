@@ -22,7 +22,7 @@ const NAME_COLUMN_LEN: usize = 20usize;
 /// # Examples
 ///
 /// ```
-/// use foundry_evm_core::abi::fmt::UIfmt;
+/// use edr_common::fmt::UIfmt;
 ///
 /// let boolean: bool = true;
 /// let string = boolean.pretty();
@@ -40,7 +40,7 @@ impl<T: UIfmt> UIfmt for &T {
 
 impl<T: UIfmt> UIfmt for Option<T> {
     fn pretty(&self) -> String {
-        if let Some(ref inner) = self {
+        if let Some(inner) = self {
             inner.pretty()
         } else {
             String::new()

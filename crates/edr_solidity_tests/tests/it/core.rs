@@ -24,7 +24,7 @@ async fn test_core() {
                 vec![(
                     "setUp()",
                     false,
-                    Some("revert: setup failed predictably".to_string()),
+                    Some("setup failed predictably".to_string()),
                     None,
                     None,
                 )],
@@ -704,7 +704,9 @@ async fn test_logs() {
 async fn test_env_vars() {
     let env_var_key = "_foundryCheatcodeSetEnvTestKey";
     let env_var_val = "_foundryCheatcodeSetEnvTestVal";
-    env::remove_var(env_var_key);
+    unsafe {
+        env::remove_var(env_var_key);
+    }
 
     let filter = SolidityTestFilter::new("testSetEnv", ".*", ".*");
     let runner = TEST_DATA_DEFAULT.runner().await;
@@ -779,7 +781,7 @@ async fn test_fail_test() {
             vec![(
                 "testFailRevert()",
                 /* should succeed */ false,
-                /* revert message */ Some("revert: should revert here".into()),
+                /* revert message */ Some("should revert here".into()),
                 None,
                 None,
             )],

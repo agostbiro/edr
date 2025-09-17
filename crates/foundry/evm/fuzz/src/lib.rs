@@ -90,8 +90,8 @@ impl BaseCounterExample {
         show_solidity: bool,
         indeterminism_reasons: Option<IndeterminismReasons>,
     ) -> Self {
-        if let Some((name, abi)) = &contracts.get(&addr) {
-            if let Some(func) = abi.functions().find(|f| f.selector() == bytes[..4]) {
+        if let Some((name, abi)) = &contracts.get(&addr)
+            && let Some(func) = abi.functions().find(|f| f.selector() == bytes[..4]) {
                 // skip the function selector when decoding
                 if let Ok(args) = func.abi_decode_input(&bytes[4..]) {
                     return Self {
@@ -102,12 +102,12 @@ impl BaseCounterExample {
                         func_name: Some(func.name.clone()),
                         signature: Some(func.signature()),
                         args: Some(
-                            foundry_evm_core::abi::fmt::format_tokens(&args)
+                            edr_common::fmt::format_tokens(&args)
                                 .format(", ")
                                 .to_string(),
                         ),
                         raw_args: Some(
-                            foundry_evm_core::abi::fmt::format_tokens_raw(&args)
+                            edr_common::fmt::format_tokens_raw(&args)
                                 .format(", ")
                                 .to_string(),
                         ),
@@ -116,7 +116,6 @@ impl BaseCounterExample {
                         indeterminism_reasons,
                     };
                 }
-            }
         }
 
         Self {
@@ -149,12 +148,12 @@ impl BaseCounterExample {
             func_name: None,
             signature: None,
             args: Some(
-                foundry_evm_core::abi::fmt::format_tokens(&args)
+                edr_common::fmt::format_tokens(&args)
                     .format(", ")
                     .to_string(),
             ),
             raw_args: Some(
-                foundry_evm_core::abi::fmt::format_tokens_raw(&args)
+                edr_common::fmt::format_tokens_raw(&args)
                     .format(", ")
                     .to_string(),
             ),
@@ -168,28 +167,28 @@ impl BaseCounterExample {
 impl fmt::Display for BaseCounterExample {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Display counterexample as solidity.
-        if self.show_solidity {
-            if let (Some(sender), Some(contract), Some(address), Some(func_name), Some(args)) = (
+        if self.show_solidity
+            && let (Some(sender), Some(contract), Some(address), Some(func_name), Some(args)) = (
                 &self.sender,
                 &self.contract_name,
                 &self.addr,
                 &self.func_name,
                 &self.raw_args,
-            ) {
-                writeln!(f, "\t\tvm.prank({sender});")?;
-                write!(
-                    f,
-                    "\t\t{}({}).{}({});",
-                    contract
-                        .split_once(':')
-                        .map_or(contract.as_str(), |(_, contract)| contract),
-                    address,
-                    func_name,
-                    args
-                )?;
+            )
+        {
+            writeln!(f, "\t\tvm.prank({sender});")?;
+            write!(
+                f,
+                "\t\t{}({}).{}({});",
+                contract
+                    .split_once(':')
+                    .map_or(contract.as_str(), |(_, contract)| contract),
+                address,
+                func_name,
+                args
+            )?;
 
-                return Ok(());
-            }
+            return Ok(());
         }
 
         // Regular counterexample display.

@@ -3,9 +3,10 @@ use std::collections::{hash_map::Entry, BTreeMap, HashMap};
 use alloy_dyn_abi::{DecodedEvent, DynSolValue, EventExt, FunctionExt, JsonAbiExt};
 use alloy_json_abi::{Error, Event, Function, JsonAbi};
 use alloy_primitives::{Address, LogData, Selector, B256};
+use edr_common::fmt::format_token;
 use edr_defaults::SELECTOR_LEN;
 use foundry_evm_core::{
-    abi::{fmt::format_token, Console, HardhatConsole, Vm, HARDHAT_CONSOLE_SELECTOR_PATCHES},
+    abi::{console, Vm},
     constants::{
         CALLER, CHEATCODE_ADDRESS, DEFAULT_CREATE2_DEPLOYER, HARDHAT_CONSOLE_ADDRESS,
         TEST_CONTRACT_ADDRESS,
@@ -134,27 +135,6 @@ impl CallTraceDecoder {
     }
 
     fn init() -> Self {
-        /// All functions from the Hardhat console ABI.
-        ///
-        /// See [`HARDHAT_CONSOLE_SELECTOR_PATCHES`] for more details.
-        fn hh_funcs() -> impl Iterator<Item = (Selector, Function)> {
-            let functions = HardhatConsole::abi::functions();
-            let mut functions: Vec<_> = functions
-                .into_values()
-                .flatten()
-                .map(|func| (func.selector(), func))
-                .collect();
-            let len = functions.len();
-            // `functions` is the list of all patched functions; duplicate the unpatched
-            // ones
-            for (unpatched, patched) in HARDHAT_CONSOLE_SELECTOR_PATCHES.iter() {
-                if let Some((_, func)) = functions[..len].iter().find(|(sel, _)| sel == patched) {
-                    functions.push((unpatched.into(), func.clone()));
-                }
-            }
-            functions.into_iter()
-        }
-
         Self {
             contracts: HashMap::default(),
             labels: [
@@ -167,16 +147,13 @@ impl CallTraceDecoder {
             .into(),
             receive_contracts: Vec::default(),
 
-            functions: hh_funcs()
-                .chain(
-                    Vm::abi::functions()
-                        .into_values()
-                        .flatten()
-                        .map(|func| (func.selector(), func)),
-                )
-                .map(|(selector, func)| (selector, vec![func]))
+            functions: console::hh::abi::functions()
+                .into_values()
+                .chain(Vm::abi::functions().into_values())
+                .flatten()
+                .map(|func| (func.selector(), vec![func]))
                 .collect(),
-            events: Console::abi::events()
+            events: console::ds::Console::abi::events()
                 .into_values()
                 .flatten()
                 .map(|event| ((event.selector(), indexed_inputs(&event)), vec![event]))
@@ -302,10 +279,10 @@ impl CallTraceDecoder {
         for error in abi.errors() {
             self.push_error(error.clone());
         }
-        if let Some(address) = address {
-            if abi.receive.is_some() {
-                self.receive_contracts.push(*address);
-            }
+        if let Some(address) = address
+            && abi.receive.is_some()
+        {
+            self.receive_contracts.push(*address);
         }
     }
 
@@ -352,12 +329,11 @@ impl CallTraceDecoder {
             let functions = match self.functions.get(selector) {
                 Some(fs) => fs,
                 None => {
-                    if let Some(identifier) = &self.signature_identifier {
-                        if let Some(function) =
+                    if let Some(identifier) = &self.signature_identifier
+                        && let Some(function) =
                             identifier.write().await.identify_function(selector).await
-                        {
-                            functions.push(function);
-                        }
+                    {
+                        functions.push(function);
                     }
                     &functions
                 }
@@ -411,10 +387,10 @@ impl CallTraceDecoder {
                 }
             }
 
-            if args.is_none() {
-                if let Ok(v) = func.abi_decode_input(&trace.data[edr_defaults::SELECTOR_LEN..]) {
-                    args = Some(v.iter().map(|value| self.apply_label(value)).collect());
-                }
+            if args.is_none()
+                && let Ok(v) = func.abi_decode_input(&trace.data[edr_defaults::SELECTOR_LEN..])
+            {
+                args = Some(v.iter().map(|value| self.apply_label(value)).collect());
             }
         }
 
@@ -531,13 +507,12 @@ impl CallTraceDecoder {
     fn decode_function_output(&self, trace: &CallTrace, funcs: &[Function]) -> Option<String> {
         let data = &trace.output;
         if trace.success {
-            if trace.address == CHEATCODE_ADDRESS {
-                if let Some(decoded) = funcs
+            if trace.address == CHEATCODE_ADDRESS
+                && let Some(decoded) = funcs
                     .iter()
                     .find_map(|func| self.decode_cheatcode_outputs(func))
-                {
-                    return Some(decoded);
-                }
+            {
+                return Some(decoded);
             }
 
             if let Some(values) = funcs
@@ -593,10 +568,10 @@ impl CallTraceDecoder {
         let events = match self.events.get(&(t0, log.topics().len() - 1)) {
             Some(es) => es,
             None => {
-                if let Some(identifier) = &self.signature_identifier {
-                    if let Some(event) = identifier.write().await.identify_event(&t0[..]).await {
-                        events.push(get_indexed_event(event, log));
-                    }
+                if let Some(identifier) = &self.signature_identifier
+                    && let Some(event) = identifier.write().await.identify_event(&t0[..]).await
+                {
+                    events.push(get_indexed_event(event, log));
                 }
                 &events
             }
@@ -658,10 +633,10 @@ impl CallTraceDecoder {
     }
 
     fn apply_label(&self, value: &DynSolValue) -> String {
-        if let DynSolValue::Address(addr) = value {
-            if let Some(label) = self.labels.get(addr) {
-                return format!("{label}: [{addr}]");
-            }
+        if let DynSolValue::Address(addr) = value
+            && let Some(label) = self.labels.get(addr)
+        {
+            return format!("{label}: [{addr}]");
         }
         format_token(value)
     }
