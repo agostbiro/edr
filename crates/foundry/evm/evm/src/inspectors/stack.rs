@@ -25,7 +25,6 @@ use revm::{
     },
     DatabaseCommit, ExecuteEvm, Inspector, Journal,
 };
-use crate::inspectors::logs::new_console_log;
 use super::{Cheatcodes, CheatsConfig, CoverageCollector, Fuzzer, LogCollector, TracingInspector};
 
 #[derive(Clone, Debug, Default)]

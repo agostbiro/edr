@@ -2,7 +2,7 @@
 // module. Instead, we emit custom diagnostics in `#[derive(Cheatcode)]`.
 #![allow(missing_docs)]
 
-use super::*;
+use super::{Error, Enum, Cow, EnumVariant, Struct, StructField, CheatcodeDef, Cheatcode, Function, Visibility, Mutability, Group, Status, Safety, fmt};
 use alloy_sol_types::sol;
 use edr_macros::Cheatcode;
 
